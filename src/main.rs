@@ -7,6 +7,24 @@ use monero::util::amount::Amount;
 use f64;
 use serde::{Deserialize};
 
+use std::time::SystemTime;
+
+struct JournalEntry {
+    txid: String,
+    time: SystemTime,
+    remaining_watt_hours: f64,
+}
+
+impl JournalEntry {
+    pub fn new(txid: String, remaining_watt_hours: f64) -> Self {
+        Self {
+            txid,
+            time: SystemTime::now(),
+            remaining_watt_hours,
+        }
+    }
+}
+
 #[derive(Deserialize, Debug, Clone)]
 struct Payment {
     watt_hours: f64,
@@ -96,16 +114,43 @@ fn main() -> () {
         monero = '84aGHMyaHbRg1rcZ9mCByuEMkAMorEqe4UCK3GFgcgTkHxQ1kJEJq6pBbHgdX1wRsRhJaZ2vbrxdoFTR7JNw7m7kMj6C1sm'
     "#).unwrap();
 
+    let (journalTx, journalRx): (Sender<JournalEntry>, Receiver<JournalEntry>) = mpsc::channel();
+
     let (sender, receiver): (Sender<MoneroTransfer>, Receiver<MoneroTransfer>) = mpsc::channel();
 
     thread::spawn(move || {
         listen_for_monero_payments(sender, config.monero_rpc);
     });
+    thread::spawn(move || {
+        journal_writer(journalRx);
+    });
 
-    route_payments(receiver, config.device, &config.price);
+    route_payments(receiver, journalTx, config.device, &config.price);
 }
 
-fn route_payments(receiver: Receiver<MoneroTransfer>, devices: Vec<Device>, price: &Price) {
+use std::env;
+use std::fs::File;
+use std::io::Write;
+use std::time::{UNIX_EPOCH};
+
+fn journal_writer(journalRx: Receiver<JournalEntry>) {
+    let current_dir = env::current_dir().unwrap();
+    loop {
+        let entry = journalRx.recv().unwrap();
+
+        let log_file = current_dir.join(entry.txid + ".log");
+
+        let mut f = File::options().append(true).open(log_file).unwrap();
+
+        let unix = entry.time.duration_since(UNIX_EPOCH).unwrap();
+        
+        let line = format!("{}\t{}\n", unix.as_millis(), entry.remaining_watt_hours);
+        f.write(line.as_bytes());
+        f.flush();
+    }
+}
+
+fn route_payments(receiver: Receiver<MoneroTransfer>, journal: Sender<JournalEntry>, devices: Vec<Device>, price: &Price) {
     let persistence = sled::open("/tmp/juice-me").expect("open");
 
     let mut router = HashMap::new();
@@ -113,27 +158,27 @@ fn route_payments(receiver: Receiver<MoneroTransfer>, devices: Vec<Device>, pric
     for device in devices {
         let (sender2, receiver2): (Sender<Payment>, Receiver<Payment>) = mpsc::channel();
         let address = device.monero.clone();
+        let journal = journal.clone();
         router.insert(address, sender2);
         thread::spawn(move || {
-            waiting_for_payment_per_device(receiver2, &device);
+            waiting_for_payment_per_device(receiver2, journal, &device);
         });
     }
 
     loop {
-        let moneroTransfer: MoneroTransfer = receiver.recv().unwrap();
+        let transfer: MoneroTransfer = receiver.recv().unwrap();
 
-        let key = moneroTransfer.txid.as_bytes();
+        let key = transfer.txid.as_bytes();
         let hit = persistence.get(key).unwrap();
-
 
         match hit {
             Some(_already_paid) => {
                 continue;
             }
             None => {                        
-                match router.get(&moneroTransfer.address) {
+                match router.get(&transfer.address) {
                     Some(channel) => {
-                        let amount = Amount::from_pico(moneroTransfer.amount);   
+                        let amount = Amount::from_pico(transfer.amount);   
                         let payment = Payment {
                             watt_hours: price.xmr_per_watt_hour * amount.as_xmr(),
                         };
@@ -141,14 +186,14 @@ fn route_payments(receiver: Receiver<MoneroTransfer>, devices: Vec<Device>, pric
                         persistence.insert(key, "OK");
                         channel.send(payment);
                     },
-                    None => println!("ERROR, missing device for address {}", &moneroTransfer.address),
+                    None => println!("ERROR, missing device for address {}", &transfer.address),
                 }
             }
         }                
     }
 }
 
-fn waiting_for_payment_per_device(receiver: Receiver<Payment>, device: &Device) {
+fn waiting_for_payment_per_device(receiver: Receiver<Payment>, journal: Sender<JournalEntry>, device: &Device) {
     loop {
         let paid: Payment = receiver.recv().unwrap();
 
@@ -156,7 +201,7 @@ fn waiting_for_payment_per_device(receiver: Receiver<Payment>, device: &Device) 
             Ok(s) => {
                 println!("Payment received! Turing on power @{} for {:.3} Wh", device.location, paid.watt_hours);
                 let end = s.aenergy.total + paid.watt_hours;
-                got_paid(device, paid.clone(), end);
+                got_paid(journal.clone(), device, paid.clone(), end);
             },
             Err(_) => println!("Error while getting status"),
         }
@@ -215,7 +260,7 @@ fn iterate_monero_transactions(transactions: &Vec<MoneroTransfer>, old_transacti
     }    
 }
 
-fn got_paid(device: &Device, paid: Payment, end: f64) -> std::io::Result<()> {
+fn got_paid(journal: Sender<JournalEntry>, device: &Device, paid: Payment, end: f64) -> std::io::Result<()> {
     let poll_delay = time::Duration::from_millis(1000);
     println!("Turing on @{}!", device.location);
     on(device);
