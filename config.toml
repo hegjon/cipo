@@ -1,0 +1,18 @@
+[price]
+xmr-per-watt-hour = 10.0
+
+[monero-rpc]
+host = 'localhost'
+port = 18083
+
+[[device]]
+location = 'Camping#1'
+host = '10.40.4.96'
+switch = 3
+monero = '46vp22XJf4CWcAdhXrWTW3AbgWbjairqd2pHE3Z5tMzrfq8szv1Dt7g1Pw7qj4gE87gJDJopNno6tDRcGDn8zUNg72h7eQt'
+
+[[device]]
+location = 'Camping#2'
+host = '10.40.4.96'
+switch = 2
+monero = '84aGHMyaHbRg1rcZ9mCByuEMkAMorEqe4UCK3GFgcgTkHxQ1kJEJq6pBbHgdX1wRsRhJaZ2vbrxdoFTR7JNw7m7kMj6C1sm'

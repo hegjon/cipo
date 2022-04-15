@@ -1,3 +1,4 @@
+
 #[macro_use]
 extern crate log;
 
@@ -7,17 +8,13 @@ use std::{thread, time};
 use std::sync::mpsc;
 use std::sync::mpsc::{Sender, Receiver};
 use monero::util::amount::Amount;
-use f64;
 use serde::{Deserialize,};
 use serde_json::json;
 
 use std::time::SystemTime;
 
-struct JournalEntry {
-    txid: String,
-    time: SystemTime,
-    remaining_watt_hours: f64,
-}
+mod journal;
+use crate::journal::JournalEntry;
 
 #[derive(Deserialize, Debug, Clone)]
 struct Payment {
@@ -87,29 +84,11 @@ struct Device {
     monero: String
 }
 
+use std::fs;
 fn main() -> () {
     env_logger::init();
-
-    let config: Config = toml::from_str(r#"
-        [price]
-        xmr-per-watt-hour = 10.0
-
-        [monero-rpc]
-        host = 'localhost'
-        port = 18083
-
-        [[device]]
-        location = 'Camping#1'
-        host =  '10.40.4.96'
-        switch = 3
-        monero = '46vp22XJf4CWcAdhXrWTW3AbgWbjairqd2pHE3Z5tMzrfq8szv1Dt7g1Pw7qj4gE87gJDJopNno6tDRcGDn8zUNg72h7eQt'
-
-        [[device]]
-        location = 'Camping#2'
-        host =  '10.40.4.96'
-        switch = 2
-        monero = '84aGHMyaHbRg1rcZ9mCByuEMkAMorEqe4UCK3GFgcgTkHxQ1kJEJq6pBbHgdX1wRsRhJaZ2vbrxdoFTR7JNw7m7kMj6C1sm'
-    "#).unwrap();
+    let content = fs::read_to_string("config.toml").unwrap();
+    let config: Config = toml::from_str(&content).unwrap();
 
     let (journalTx, journal_rx): (Sender<JournalEntry>, Receiver<JournalEntry>) = mpsc::channel();
 
@@ -119,43 +98,11 @@ fn main() -> () {
         listen_for_monero_payments(sender, config.monero_rpc);
     });
     thread::spawn(move || {
-        journal_writer(journal_rx);
+        journal::journal_writer(journal_rx);
     });
 
     route_payments(receiver, journalTx, config.device, &config.price);
 }
-
-use std::env;
-use std::path::PathBuf;
-use std::fs::File;
-use std::io::Write;
-
-fn journal_file(txid: &String) -> PathBuf {
-    let current_dir = env::current_dir().unwrap();
-    let log_file = current_dir.join("journal").join(txid.to_owned() + ".log");
-
-    log_file
-}
-
-fn have_been_journaled(txid: &String) -> bool {
-    let file = journal_file(txid);
-    file.is_file() && file.exists()
-}
-
-fn journal_writer(journal_rx: Receiver<JournalEntry>) {
-    loop {
-        let entry = journal_rx.recv().unwrap();
-
-        let log_file = journal_file(&entry.txid);
-
-        let mut f = File::options().create(true).append(true).open(log_file).unwrap();
-
-        let time = humantime::format_rfc3339(entry.time);
-        
-        writeln!(f, "{} {:+.3}", time, entry.remaining_watt_hours);
-    }
-}
-
 
 fn route_payments(receiver: Receiver<MoneroTransfer>, journal: Sender<JournalEntry>, devices: Vec<Device>, price: &Price) {
     let mut router = HashMap::new();
@@ -173,7 +120,7 @@ fn route_payments(receiver: Receiver<MoneroTransfer>, journal: Sender<JournalEnt
     loop {
         let transfer: MoneroTransfer = receiver.recv().unwrap();
 
-        if have_been_journaled(&transfer.txid) {
+        if journal::have_been_journaled(&transfer.txid) {
             //already delivered electricity
             continue;
         }
