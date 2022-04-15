@@ -8,7 +8,8 @@ use std::sync::mpsc;
 use std::sync::mpsc::{Sender, Receiver};
 use monero::util::amount::Amount;
 use f64;
-use serde::{Deserialize};
+use serde::{Deserialize,};
+use serde_json::json;
 
 use std::time::SystemTime;
 
@@ -195,36 +196,42 @@ fn route_payments(receiver: Receiver<MoneroTransfer>, journal: Sender<JournalEnt
 fn waiting_for_payment_per_device(receiver: Receiver<Payment>, journal: Sender<JournalEntry>, device: &Device) {
     loop {
         let payment: Payment = receiver.recv().unwrap();
-        delivery_electricity(journal.clone(), device, payment);
+        deliver_electricity(journal.clone(), device, payment);
     }
 }
 
-fn listen_for_monero_payments(sender: Sender<MoneroTransfer>, config: HostPort) -> Result<(), reqwest::Error> {
+fn listen_for_monero_payments(sender: Sender<MoneroTransfer>, config: HostPort) -> Result<(), attohttpc::Error> {
     let poll_delay = time::Duration::from_millis(1000);
     
     let mut old_transactions: HashSet<String> = HashSet::new();
 
-    let body = r#"{"jsonrpc":"2.0","id":"0","method":"get_transfers","params":{"in":true,"pending":true,"pool":true}}"#;
-    let body2 = r#"{"jsonrpc":"2.0","id":"1","method":"refresh","params":{"start_height":2598796}}"#;
+    let url = format!("http://{}:{}/json_rpc", config.host, config.port);
+    let refresh = json!({
+        "jsonrpc": "2.0",
+        "id": "0",
+        "method": "refresh",
+        "params": {"start_height": 2598796}
+    });
 
+    let get_transfers = json!({
+        "jsonrpc": "2.0",
+        "id": "1",
+        "method": "get_transfers",
+        "params": {"in":true,"pending":true,"pool":true}
+    });
+    
     info!("Waiting for payments from Monero");
     loop {
-        let client = reqwest::blocking::Client::new();
+        attohttpc::post(&url)
+             .json(&refresh)?
+             .send().unwrap();
 
-        let url = format!("http://{}:{}/json_rpc", config.host, config.port);
-        // let res3 = attohttpc::post(&url)
-        //     .body(&body2)
-        //     .send();
-
-        let res2 = client.post(&url)
-            .body(body2)
-            .send()?;
-
-        let res = client.post(&url)
-            .body(body)
-            .send()?;
+        let res = attohttpc::post(&url)
+            .json(&get_transfers)?
+            .send()
+            .unwrap();
                 
-        let response: MoneroResponse = res.json()?;
+        let response: MoneroResponse = res.json().unwrap();
 
         match response.result.transfers {
             Some(t) => iterate_monero_transactions(&t, &mut old_transactions, &sender),
@@ -255,7 +262,7 @@ fn iterate_monero_transactions(transactions: &Vec<MoneroTransfer>, old_transacti
     }    
 }
 
-fn delivery_electricity(journal: Sender<JournalEntry>, device: &Device, paid: Payment) -> std::io::Result<()> {
+fn deliver_electricity(journal: Sender<JournalEntry>, device: &Device, paid: Payment) -> std::io::Result<()> {
     journal.send(JournalEntry {
         time: SystemTime::now(),
         txid: paid.txid.clone(),
