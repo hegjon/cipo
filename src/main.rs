@@ -1,39 +1,28 @@
-use std::sync::mpsc::RecvError;
 use std::collections::HashSet;
+use std::collections::HashMap;
 use std::{thread, time};
 use std::sync::mpsc;
 use std::sync::mpsc::{Sender, Receiver};
 use monero::util::amount::Amount;
-
-
+use f64;
 use serde::{Deserialize};
 
-#[derive(Debug, Clone)]
+#[derive(Deserialize, Debug, Clone)]
 struct Payment {
-    transaction_hash: String,
-    watt_hours: f32,
+    watt_hours: f64,
 }
 
 #[derive(Deserialize, Debug, Clone)]
 struct Status {
-    apower: f32,
+    apower: f64,
     aenergy: Energy,
 }
 
 #[derive(Deserialize, Debug, Clone)]
 struct Energy {
-    total: f32,
+    total: f64,
     by_minute: Vec<f32>,
     minute_ts: i64,
-}
-
-#[derive(Deserialize, Debug, Clone)]
-struct Transaction {
-    entryType: String,
-    transactionHash: String,
-    value: i64,
-    blockIndex: i64,
-    confirmations: i64,
 }
 
 #[derive(Deserialize, Debug, Clone)]
@@ -45,138 +34,137 @@ struct MoneroResponse {
 struct MoneroResult {
 
     #[serde(rename = "in")]
-    transfers: Vec<MoneroTransfer>,
+    transfers: Option<Vec<MoneroTransfer>>,
 
-    pool: Vec<MoneroTransfer>
+    pool: Option<Vec<MoneroTransfer>>
 }
 
 #[derive(Deserialize, Debug, Clone)]
 struct MoneroTransfer {
+    address: String,
     amount: u64,
     #[serde(rename = "txid")]
     tx_hash: String, 
 }
 
-#[derive(Deserialize)]
+#[derive(Deserialize, Debug, Clone)]
 struct Config {
-    ip: String,
-    monero: MoneroConfig,
+    #[serde(rename = "monero-rpc")]
+    monero_rpc: HostPort,
+    device: Vec<Device>,
+    price: Price,
 }
 
-#[derive(Deserialize)]
-struct MoneroConfig {
+#[derive(Deserialize, Debug, Clone)]
+struct Price {
+    #[serde(rename = "xmr-per-watt-hour")]
+    xmr_per_watt_hour: f64,
+}
+
+#[derive(Deserialize, Debug, Clone)]
+struct HostPort {
     host: String,
     port: u16,
 }
 
+#[derive(Deserialize, Debug, Clone)]
+struct Device {
+    location: String,
+    host: String,
+    switch: u16,
+    monero: String
+}
 
 fn main() -> () {
     let config: Config = toml::from_str(r#"
-        ip = '127.0.0.1'
+        [price]
+        xmr-per-watt-hour = 10.0
 
-        [monero]
+        [monero-rpc]
         host = 'localhost'
         port = 18083
 
-        [device.0]
-        type = 'shelly'
+        [[device]]
+        location = 'Camping#1'
         host =  '10.40.4.96'
         switch = 3
         monero = '46vp22XJf4CWcAdhXrWTW3AbgWbjairqd2pHE3Z5tMzrfq8szv1Dt7g1Pw7qj4gE87gJDJopNno6tDRcGDn8zUNg72h7eQt'
 
-        [device.1]
-        type = 'shelly'
+        [[device]]
+        location = 'Camping#2'
         host =  '10.40.4.96'
         switch = 2
         monero = '84aGHMyaHbRg1rcZ9mCByuEMkAMorEqe4UCK3GFgcgTkHxQ1kJEJq6pBbHgdX1wRsRhJaZ2vbrxdoFTR7JNw7m7kMj6C1sm'
     "#).unwrap();
 
-
-    let (sender, receiver): (Sender<Payment>, Receiver<Payment>) = mpsc::channel();
-    let sender2 = sender.clone();
+    let (sender, receiver): (Sender<MoneroTransfer>, Receiver<MoneroTransfer>) = mpsc::channel();
 
     thread::spawn(move || {
-        //listen_for_blockcore_payments(sender);
+        listen_for_monero_payments(sender, config.monero_rpc);
     });
 
-    thread::spawn(move || {
-        listen_for_monero_payments(sender2, config.monero);
-    });
-
-    waiting_for_payments(receiver);
+    route_payments(receiver, config.device, &config.price);
 }
 
-fn waiting_for_payments(receiver: Receiver<Payment>) {
-    let tree = sled::open("/tmp/juice-me").expect("open");
+fn route_payments(receiver: Receiver<MoneroTransfer>, devices: Vec<Device>, price: &Price) {
+    let persistence = sled::open("/tmp/juice-me").expect("open");
+
+    let mut router = HashMap::new();
+
+    for device in devices {
+        let (sender2, receiver2): (Sender<Payment>, Receiver<Payment>) = mpsc::channel();
+        let address = device.monero.clone();
+        router.insert(address, sender2);
+        thread::spawn(move || {
+            waiting_for_payment_per_device(receiver2, &device);
+        });
+    }
 
     loop {
-        let payment: Result<Payment, RecvError> = receiver.recv();
+        let moneroTransfer: MoneroTransfer = receiver.recv().unwrap();
 
-        match payment {
-            Err(err) => {
-                println!("Error while receiving payment: {}", err);
-                thread::sleep_ms(1000);
+        let key = moneroTransfer.tx_hash.as_bytes();
+        let hit = persistence.get(key).unwrap();
+
+
+        match hit {
+            Some(_already_paid) => {
                 continue;
             }
-            Ok(paid) => {
-                let key = paid.transaction_hash.as_bytes();
-                let cache = tree.get(key).unwrap();
-        
-                match cache {
-                    Some(_already_paid) => {
-                        continue;
-                    }
-                    None => {
-                        println!("Payment received! Turing on power for {:.3} Wh", paid.watt_hours);
-                    }
-                }
-        
+            None => {                        
+                match router.get(&moneroTransfer.address) {
+                    Some(channel) => {
+                        let amount = Amount::from_pico(moneroTransfer.amount);   
+                        let payment = Payment {
+                            watt_hours: price.xmr_per_watt_hour * amount.as_xmr(),
+                        };
                 
-                match status() {
-                    Ok(s) => {
-                        let end = s.aenergy.total + paid.watt_hours;
-                        got_paid(paid.clone(), end);
-                        tree.insert(key, "OK");
+                        persistence.insert(key, "OK");
+                        channel.send(payment);
                     },
-                    Err(_) => println!("Error while getting status"),
+                    None => println!("ERROR, missing device for address {}", &moneroTransfer.address),
                 }
             }
-        } 
+        }                
     }
 }
 
-/*
-fn listen_for_blockcore_payments(sender: Sender<Transaction>) -> Result<(), reqwest::Error> {
-    println!("Waiting for payments from blockcore");
-    let poll_delay = time::Duration::from_millis(1000);
-    let address = "qepVBqAgJ6xzv1TLpJS3mAnPycGfUab9pC";
-    let mut offset = 0;    
+fn waiting_for_payment_per_device(receiver: Receiver<Payment>, device: &Device) {
     loop {
-        let url = format!("https://tstrax.indexer.blockcore.net/api/query/address/{}/transactions?offset={}&limit=1", address, offset);
-        let transactions: Vec<Transaction> = reqwest::blocking::get(url)?.json()?;
+        let paid: Payment = receiver.recv().unwrap();
 
-        match transactions.first() {
-            Some(t) => {
-                println!("Got transaction with {:.8} value", t.value as f64 / 10_0000_000 as f64);
-                sender.send(t.clone());
-                offset = offset + 1;        
+        match status(device) {
+            Ok(s) => {
+                println!("Payment received! Turing on power @{} for {:.3} Wh", device.location, paid.watt_hours);
+                let end = s.aenergy.total + paid.watt_hours;
+                got_paid(device, paid.clone(), end);
             },
-            None => thread::sleep(poll_delay),
+            Err(_) => println!("Error while getting status"),
         }
     }
 }
 
-fn listen_for_electrum_payments(sender: Sender<Transaction>) {
-    let client = Client::new("tcp://10.40.4.2:50001").unwrap();
-    let res = client.server_features();
-    println!("{:#?}", res);
-
-}
-*/
-
-fn listen_for_monero_payments(sender: Sender<Payment>, config: MoneroConfig) -> Result<(), reqwest::Error> {
-    let host = config.host;
-    let port = config.port;
+fn listen_for_monero_payments(sender: Sender<MoneroTransfer>, config: HostPort) -> Result<(), reqwest::Error> {
     let poll_delay = time::Duration::from_millis(1000);
     
     let mut old_transactions: HashSet<String> = HashSet::new();
@@ -188,7 +176,7 @@ fn listen_for_monero_payments(sender: Sender<Payment>, config: MoneroConfig) -> 
     loop {
         let client = reqwest::blocking::Client::new();
 
-        let url = format!("http://{}:{}/json_rpc", host, port);
+        let url = format!("http://{}:{}/json_rpc", config.host, config.port);
         let res2 = client.post(&url)
             .body(body2)
             .send()?;
@@ -199,93 +187,75 @@ fn listen_for_monero_payments(sender: Sender<Payment>, config: MoneroConfig) -> 
                 
         let response: MoneroResponse = res.json()?;
 
-        for t in response.result.transfers {   
-            if old_transactions.contains(&t.tx_hash) {
-                continue;
-            }   
-
-            let amount = Amount::from_pico(t.amount);
-            let hash = t.tx_hash.clone();  
-            println!("Got Monero transaction with {} XMR", amount);
-            let paid = Payment {
-                transaction_hash: t.tx_hash,
-                watt_hours: 10 as f32 * amount.as_xmr() as f32,
-            };
-
-            sender.send(paid);
-            old_transactions.insert(hash);
+        match response.result.transfers {
+            Some(t) => iterate_monero_transactions(&t, &mut old_transactions, &sender),
+            None => (),
         }
 
-        for t in response.result.pool {   
-            if old_transactions.contains(&t.tx_hash) {
-                continue;
-            }   
-
-            let amount = Amount::from_pico(t.amount);
-            let hash = t.tx_hash.clone();  
-            println!("Got Monero transaction with {} XMR", amount);
-            let paid = Payment {
-                transaction_hash: t.tx_hash,
-                watt_hours: 10 as f32 * amount.as_xmr() as f32,
-            };
-
-            sender.send(paid);
-            old_transactions.insert(hash);
+        match response.result.pool {
+            Some(t) => iterate_monero_transactions(&t, &mut old_transactions, &sender),
+            None => (),
         }
 
         thread::sleep(poll_delay);     
     }
 }
 
-fn got_paid(paid: Payment, end: f32) -> std::io::Result<()> {
-    let poll_delay = time::Duration::from_millis(1000);
-/*
-    let root = "/home/jonny/tmp/juice_me/";
-    fs::create_dir_all(root).unwrap();
-    let full_path = Path::new(root).join(paid.transaction_hash);
-    let mut f = File::options().append(true).open(full_path)?;
-    println!("Turing on!");
+fn iterate_monero_transactions(transactions: &Vec<MoneroTransfer>, old_transactions: &mut HashSet<String>, sender: &Sender<MoneroTransfer>) {
+    for t in transactions {   
+        if old_transactions.contains(&t.tx_hash) {
+            continue;
+        }   
 
-*/
-    on();
-//    write!(f, "{} {}", 123445, "open");
+        let amount = Amount::from_pico(t.amount);
+        println!("Got Monero transaction with {} XMR", amount);
+        let hash = t.tx_hash.clone();  
+
+        sender.send(t.clone());
+        old_transactions.insert(hash);
+    }    
+}
+
+fn got_paid(device: &Device, paid: Payment, end: f64) -> std::io::Result<()> {
+    let poll_delay = time::Duration::from_millis(1000);
+    println!("Turing on @{}!", device.location);
+    on(device);
     loop {
-        match status() {
+        match status(device) {
             Ok(s) => {
-                println!("Current power {:.1}W, total watt hour {:.3} Wh used, will end at {:.3} Wh", s.apower, s.aenergy.total, end);
+                println!("Current power @{} {:.1}W, total watt hour {:.3} Wh used, will end at {:.3} Wh", device.location, s.apower, s.aenergy.total, end);
                 //write!(f, "{} {:.3}", 123445, end - s.aenergy.total);
                 if s.aenergy.total > end {
                     println!("Session done at {:.3} Wh", s.aenergy.total);
                     break;
                 }
             },
-            Err(_) => println!("Error while getting status"),
+            Err(_) => println!("Error while getting status for {}", device.location),
         }   
         thread::sleep(poll_delay);
     }
-    println!("Turing off!");
-    off();
-//    write!(f, "{} {}", 223445, "close");
+    println!("Turing off @{}!", device.location);
+    off(device);
 
     Ok(())
 }
 
-fn on() -> Result<(), reqwest::Error> {
-    let url = "http://10.40.4.96/rpc/Switch.Set?id=3&on=true";
+fn on(shelly: &Device) -> Result<(), reqwest::Error> {
+    let url = format!("http://{}/rpc/Switch.Set?id={}&on=true", shelly.host, shelly.switch);
     reqwest::blocking::get(url)?;
     
     Ok(())
 }
 
-fn off() -> Result<(), reqwest::Error> {
-    let url = "http://10.40.4.96/rpc/Switch.Set?id=3&on=false";
+fn off(shelly: &Device) -> Result<(), reqwest::Error> {
+    let url = format!("http://{}/rpc/Switch.Set?id={}&on=false", shelly.host, shelly.switch);
     reqwest::blocking::get(url)?;
 
     Ok(())
 }
 
-fn status() -> Result<Status, reqwest::Error> {
-    let url = "http://10.40.4.96/rpc/Switch.GetStatus?id=3";
+fn status(shelly: &Device) -> Result<Status, reqwest::Error> {
+    let url = format!("http://{}/rpc/Switch.GetStatus?id={}", shelly.host, shelly.switch);
 
     let json: Status = reqwest::blocking::get(url)?.json()?;
 
