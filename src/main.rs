@@ -43,8 +43,7 @@ struct MoneroResult {
 struct MoneroTransfer {
     address: String,
     amount: u64,
-    #[serde(rename = "txid")]
-    tx_hash: String, 
+    txid: String,
 }
 
 #[derive(Deserialize, Debug, Clone)]
@@ -123,7 +122,7 @@ fn route_payments(receiver: Receiver<MoneroTransfer>, devices: Vec<Device>, pric
     loop {
         let moneroTransfer: MoneroTransfer = receiver.recv().unwrap();
 
-        let key = moneroTransfer.tx_hash.as_bytes();
+        let key = moneroTransfer.txid.as_bytes();
         let hit = persistence.get(key).unwrap();
 
 
@@ -203,13 +202,13 @@ fn listen_for_monero_payments(sender: Sender<MoneroTransfer>, config: HostPort) 
 
 fn iterate_monero_transactions(transactions: &Vec<MoneroTransfer>, old_transactions: &mut HashSet<String>, sender: &Sender<MoneroTransfer>) {
     for t in transactions {   
-        if old_transactions.contains(&t.tx_hash) {
+        if old_transactions.contains(&t.txid) {
             continue;
         }   
 
         let amount = Amount::from_pico(t.amount);
         println!("Got Monero transaction with {} XMR", amount);
-        let hash = t.tx_hash.clone();  
+        let hash = t.txid.clone();
 
         sender.send(t.clone());
         old_transactions.insert(hash);
