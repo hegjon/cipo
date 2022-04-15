@@ -1,3 +1,6 @@
+#[macro_use]
+extern crate log;
+
 use std::collections::HashSet;
 use std::collections::HashMap;
 use std::{thread, time};
@@ -15,19 +18,10 @@ struct JournalEntry {
     remaining_watt_hours: f64,
 }
 
-impl JournalEntry {
-    pub fn new(txid: String, remaining_watt_hours: f64) -> Self {
-        Self {
-            txid,
-            time: SystemTime::now(),
-            remaining_watt_hours,
-        }
-    }
-}
-
 #[derive(Deserialize, Debug, Clone)]
 struct Payment {
     watt_hours: f64,
+    txid: String,
 }
 
 #[derive(Deserialize, Debug, Clone)]
@@ -93,6 +87,8 @@ struct Device {
 }
 
 fn main() -> () {
+    env_logger::init();
+
     let config: Config = toml::from_str(r#"
         [price]
         xmr-per-watt-hour = 10.0
@@ -114,7 +110,7 @@ fn main() -> () {
         monero = '84aGHMyaHbRg1rcZ9mCByuEMkAMorEqe4UCK3GFgcgTkHxQ1kJEJq6pBbHgdX1wRsRhJaZ2vbrxdoFTR7JNw7m7kMj6C1sm'
     "#).unwrap();
 
-    let (journalTx, journalRx): (Sender<JournalEntry>, Receiver<JournalEntry>) = mpsc::channel();
+    let (journalTx, journal_rx): (Sender<JournalEntry>, Receiver<JournalEntry>) = mpsc::channel();
 
     let (sender, receiver): (Sender<MoneroTransfer>, Receiver<MoneroTransfer>) = mpsc::channel();
 
@@ -122,37 +118,45 @@ fn main() -> () {
         listen_for_monero_payments(sender, config.monero_rpc);
     });
     thread::spawn(move || {
-        journal_writer(journalRx);
+        journal_writer(journal_rx);
     });
 
     route_payments(receiver, journalTx, config.device, &config.price);
 }
 
 use std::env;
+use std::path::PathBuf;
 use std::fs::File;
 use std::io::Write;
-use std::time::{UNIX_EPOCH};
 
-fn journal_writer(journalRx: Receiver<JournalEntry>) {
+fn journal_file(txid: &String) -> PathBuf {
     let current_dir = env::current_dir().unwrap();
+    let log_file = current_dir.join("journal").join(txid.to_owned() + ".log");
+
+    log_file
+}
+
+fn have_been_journaled(txid: &String) -> bool {
+    let file = journal_file(txid);
+    file.is_file() && file.exists()
+}
+
+fn journal_writer(journal_rx: Receiver<JournalEntry>) {
     loop {
-        let entry = journalRx.recv().unwrap();
+        let entry = journal_rx.recv().unwrap();
 
-        let log_file = current_dir.join(entry.txid + ".log");
+        let log_file = journal_file(&entry.txid);
 
-        let mut f = File::options().append(true).open(log_file).unwrap();
+        let mut f = File::options().create(true).append(true).open(log_file).unwrap();
 
-        let unix = entry.time.duration_since(UNIX_EPOCH).unwrap();
+        let time = humantime::format_rfc3339(entry.time);
         
-        let line = format!("{}\t{}\n", unix.as_millis(), entry.remaining_watt_hours);
-        f.write(line.as_bytes());
-        f.flush();
+        writeln!(f, "{} {:+.3}", time, entry.remaining_watt_hours);
     }
 }
 
-fn route_payments(receiver: Receiver<MoneroTransfer>, journal: Sender<JournalEntry>, devices: Vec<Device>, price: &Price) {
-    let persistence = sled::open("/tmp/juice-me").expect("open");
 
+fn route_payments(receiver: Receiver<MoneroTransfer>, journal: Sender<JournalEntry>, devices: Vec<Device>, price: &Price) {
     let mut router = HashMap::new();
 
     for device in devices {
@@ -168,43 +172,30 @@ fn route_payments(receiver: Receiver<MoneroTransfer>, journal: Sender<JournalEnt
     loop {
         let transfer: MoneroTransfer = receiver.recv().unwrap();
 
-        let key = transfer.txid.as_bytes();
-        let hit = persistence.get(key).unwrap();
+        if have_been_journaled(&transfer.txid) {
+            //already delivered electricity
+            continue;
+        }
 
-        match hit {
-            Some(_already_paid) => {
-                continue;
-            }
-            None => {                        
-                match router.get(&transfer.address) {
-                    Some(channel) => {
-                        let amount = Amount::from_pico(transfer.amount);   
-                        let payment = Payment {
-                            watt_hours: price.xmr_per_watt_hour * amount.as_xmr(),
-                        };
-                
-                        persistence.insert(key, "OK");
-                        channel.send(payment);
-                    },
-                    None => println!("ERROR, missing device for address {}", &transfer.address),
-                }
-            }
+        match router.get(&transfer.address) {
+            Some(channel) => {
+                let amount = Amount::from_pico(transfer.amount);   
+                let payment = Payment {
+                    watt_hours: price.xmr_per_watt_hour * amount.as_xmr(),
+                    txid: transfer.txid.clone(),
+                };
+        
+                channel.send(payment);
+            },
+            None => error!("missing device for address {}", &transfer.address),
         }                
     }
 }
 
 fn waiting_for_payment_per_device(receiver: Receiver<Payment>, journal: Sender<JournalEntry>, device: &Device) {
     loop {
-        let paid: Payment = receiver.recv().unwrap();
-
-        match status(device) {
-            Ok(s) => {
-                println!("Payment received! Turing on power @{} for {:.3} Wh", device.location, paid.watt_hours);
-                let end = s.aenergy.total + paid.watt_hours;
-                got_paid(journal.clone(), device, paid.clone(), end);
-            },
-            Err(_) => println!("Error while getting status"),
-        }
+        let payment: Payment = receiver.recv().unwrap();
+        delivery_electricity(journal.clone(), device, payment);
     }
 }
 
@@ -216,11 +207,15 @@ fn listen_for_monero_payments(sender: Sender<MoneroTransfer>, config: HostPort) 
     let body = r#"{"jsonrpc":"2.0","id":"0","method":"get_transfers","params":{"in":true,"pending":true,"pool":true}}"#;
     let body2 = r#"{"jsonrpc":"2.0","id":"1","method":"refresh","params":{"start_height":2598796}}"#;
 
-    println!("Waiting for payments from Monero");
+    info!("Waiting for payments from Monero");
     loop {
         let client = reqwest::blocking::Client::new();
 
         let url = format!("http://{}:{}/json_rpc", config.host, config.port);
+        // let res3 = attohttpc::post(&url)
+        //     .body(&body2)
+        //     .send();
+
         let res2 = client.post(&url)
             .body(body2)
             .send()?;
@@ -252,7 +247,7 @@ fn iterate_monero_transactions(transactions: &Vec<MoneroTransfer>, old_transacti
         }   
 
         let amount = Amount::from_pico(t.amount);
-        println!("Got Monero transaction with {} XMR", amount);
+        info!("Received {}", amount);
         let hash = t.txid.clone();
 
         sender.send(t.clone());
@@ -260,48 +255,81 @@ fn iterate_monero_transactions(transactions: &Vec<MoneroTransfer>, old_transacti
     }    
 }
 
-fn got_paid(journal: Sender<JournalEntry>, device: &Device, paid: Payment, end: f64) -> std::io::Result<()> {
-    let poll_delay = time::Duration::from_millis(1000);
-    println!("Turing on @{}!", device.location);
-    on(device);
+fn delivery_electricity(journal: Sender<JournalEntry>, device: &Device, paid: Payment) -> std::io::Result<()> {
+    journal.send(JournalEntry {
+        time: SystemTime::now(),
+        txid: paid.txid.clone(),
+        remaining_watt_hours: paid.watt_hours,
+    }).unwrap();
+
+    let mut start: Option<f64> = None;
+
+    let poll_delay = time::Duration::from_millis(5000);
     loop {
         match status(device) {
             Ok(s) => {
-                println!("Current power @{} {:.1}W, total watt hour {:.3} Wh used, will end at {:.3} Wh", device.location, s.apower, s.aenergy.total, end);
-                //write!(f, "{} {:.3}", 123445, end - s.aenergy.total);
-                if s.aenergy.total > end {
-                    println!("Session done at {:.3} Wh", s.aenergy.total);
-                    break;
+                match start {
+                    None => {
+                        start = Some(s.aenergy.total);
+                        info!("Turing on @{}!", device.location);
+                        on(device);
+                    }
+                    Some(start) => {
+                        let end = start + paid.watt_hours;
+                        let current = s.aenergy.total;
+
+                        journal.send(JournalEntry {
+                            time: SystemTime::now(),
+                            txid: paid.txid.clone(),
+                            remaining_watt_hours: end - current,
+                        }).unwrap();                        
+
+                        debug!("Current power @{} {:.1}W, total watt hour {:.3} Wh used, will end at {:.3} Wh", device.location, s.apower, current, end);
+
+                        if current < end {
+                            on(device);
+                        } else {
+                            info!("Session done at {:.3} Wh", current);
+                            info!("Turing off @{}!", device.location);
+                            off(device);
+                        
+                            return Ok(());
+                        }        
+                    }
                 }
             },
-            Err(_) => println!("Error while getting status for {}", device.location),
+            Err(_) => error!("Error while getting status for {}", device.location),
         }   
         thread::sleep(poll_delay);
     }
-    println!("Turing off @{}!", device.location);
-    off(device);
-
-    Ok(())
 }
 
-fn on(shelly: &Device) -> Result<(), reqwest::Error> {
+fn on(shelly: &Device) -> Result<(), attohttpc::Error> {
     let url = format!("http://{}/rpc/Switch.Set?id={}&on=true", shelly.host, shelly.switch);
-    reqwest::blocking::get(url)?;
+    attohttpc::get(url).send();
     
     Ok(())
 }
 
-fn off(shelly: &Device) -> Result<(), reqwest::Error> {
+fn off(shelly: &Device) -> Result<(), attohttpc::Error> {
     let url = format!("http://{}/rpc/Switch.Set?id={}&on=false", shelly.host, shelly.switch);
-    reqwest::blocking::get(url)?;
+    attohttpc::get(url).send();
 
     Ok(())
 }
 
-fn status(shelly: &Device) -> Result<Status, reqwest::Error> {
+fn status(shelly: &Device) -> Result<Status, attohttpc::Error> {
     let url = format!("http://{}/rpc/Switch.GetStatus?id={}", shelly.host, shelly.switch);
 
-    let json: Status = reqwest::blocking::get(url)?.json()?;
-
-    Ok(json)
+    let response = attohttpc::get(url).send();
+    
+    match response {
+        Ok(r) => {
+            let json: Status = r.json().unwrap();
+            return Ok(json);
+        }
+        Err(e) => {
+            return Err(e);
+        },
+    }
 }
