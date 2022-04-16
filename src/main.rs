@@ -7,7 +7,6 @@ use std::collections::HashMap;
 use std::{thread, time};
 use std::sync::mpsc;
 use std::sync::mpsc::{Sender, Receiver};
-use monero::util::amount::Amount;
 use serde::Deserialize;
 use serde_json::json;
 
@@ -175,8 +174,9 @@ fn iterate_monero_transactions(transactions: &Vec<MoneroTransfer>, old_transacti
             continue;
         }   
 
-        let amount = Amount::from_pico(t.amount);
-        info!("Received {}", amount);
+        let xmr = t.amount as f64 / 1000000000000.0;
+        
+        info!("Received {:0.12} XMR", xmr);
         let hash = t.txid.clone();
 
         sender.send(t.clone());
