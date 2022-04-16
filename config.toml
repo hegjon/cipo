@@ -1,5 +1,5 @@
 [price]
-xmr-per-kwh = 10.0
+xmr-per-kwh = 100.0
 
 [monero-rpc]
 host = 'localhost'

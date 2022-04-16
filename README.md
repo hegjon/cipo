@@ -3,6 +3,7 @@
 ## Config
 
 The devices and price per watt hour is declared in the config file config.toml.
+You need to restart the program for it to read in changes.
 
 ### Example file
 ```
@@ -38,7 +39,7 @@ For Norway this could be done like this:
 1 USD = 8,83 NOK
 1 kWh = 1000 Wh = 2.63 NOK
 
-xmr-per-watt-hour 
+TODO: Make formula
 
 ### When is the exchange rate calculated?
 

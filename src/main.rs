@@ -10,7 +10,7 @@ use std::sync::mpsc::{Sender, Receiver};
 use serde::Deserialize;
 use serde_json::json;
 
-use std::time::SystemTime;
+use std::time::{SystemTime,Duration};
 
 mod journal;
 mod config;
@@ -99,18 +99,52 @@ fn route_payments(receiver: Receiver<MoneroTransfer>, journal: Sender<JournalEnt
         }
 
         match router.get(&transfer.address) {
-            Some(channel) => {
-                //let amount = Amount::from_pico(transfer.amount);   
-                let amount: f64 = transfer.amount as f64 / 1000000000000.0;
+            Some(channel) => {                
                 let payment = Payment {
-                    watt_hours: price.xmr_per_kwh * 1000.0 * amount,
+                    watt_hours: calculate_watt_hours(price.xmr_per_kwh, transfer.amount),
                     txid: transfer.txid.clone(),
                 };
         
                 channel.send(payment);
             },
             None => error!("missing device for address {}", &transfer.address),
-        }                
+        }
+    }
+}
+
+fn calculate_watt_hours(xmr_per_kwh: f64, picomonero: u64) -> f64 {
+    let xmr: f64 = picomonero as f64 / 1000000000000.0;
+
+    (xmr / xmr_per_kwh) * 1000.0
+}
+
+#[cfg(test)]
+mod tests {
+    // Note this useful idiom: importing names from outer (for mod tests) scope.
+    use super::*;
+
+    #[test]
+    fn test_one_xmr() {
+        let actual = calculate_watt_hours(1.0, 1_000_000_000_000);
+        let expected = 1000.0;
+
+        assert_eq!(actual, expected);
+    }
+
+    #[test]
+    fn test_two_xmr() {
+        let actual = calculate_watt_hours(1.0, 2_000_000_000_000);
+        let expected = 2000.0;
+
+        assert_eq!(actual, expected);
+    }
+    
+    #[test]
+    fn test_half_price() {
+        let actual = calculate_watt_hours(0.5, 1_000_000_000_000);
+        let expected = 2000.0;
+
+        assert_eq!(actual, expected);
     }
 }
 
@@ -122,7 +156,7 @@ fn waiting_for_payment_per_device(receiver: Receiver<Payment>, journal: Sender<J
 }
 
 fn listen_for_monero_payments(sender: Sender<MoneroTransfer>, config: HostPort) -> Result<(), attohttpc::Error> {
-    let poll_delay = time::Duration::from_millis(1000);
+    let poll_delay = Duration::from_millis(1000);
     
     let mut old_transactions: HashSet<String> = HashSet::new();
 
@@ -176,13 +210,14 @@ fn iterate_monero_transactions(transactions: &Vec<MoneroTransfer>, old_transacti
 
         let xmr = t.amount as f64 / 1000000000000.0;
         
-        info!("Received {:0.12} XMR", xmr);
+        info!("Received {:0.12} XMR to {}", xmr, t.address);
         let hash = t.txid.clone();
 
         sender.send(t.clone());
         old_transactions.insert(hash);
     }    
 }
+
 
 fn deliver_electricity(journal: Sender<JournalEntry>, device: &Device, paid: Payment) -> std::io::Result<()> {
     journal.send(JournalEntry {
@@ -191,9 +226,9 @@ fn deliver_electricity(journal: Sender<JournalEntry>, device: &Device, paid: Pay
         remaining_watt_hours: paid.watt_hours,
     }).unwrap();
 
+    let poll_delay = Duration::from_secs(10);
     let mut start: Option<f64> = None;
 
-    let poll_delay = time::Duration::from_secs(10);
     loop {
         match status(device) {
             Ok(s) => {
@@ -213,7 +248,7 @@ fn deliver_electricity(journal: Sender<JournalEntry>, device: &Device, paid: Pay
                             remaining_watt_hours: end - total,
                         }).unwrap();                        
 
-                        debug!("{}: Load {:.1} W, meter at {:.2} Wh, will end at {:.2} Wh", device.location, s.apower, total, end);
+                        debug!("{}: Load {:.1} W, meter at {:.3} Wh, will end at {:.3} Wh", device.location, s.apower, total, end);
 
                         if total < end {
                             on(device);
