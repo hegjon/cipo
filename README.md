@@ -1,5 +1,7 @@
 # Cipo
 
+Crypto in, power out
+
 ## Config
 
 The devices and price per watt hour is declared in the config file config.toml.
