@@ -59,6 +59,8 @@ struct MoneroTransfer {
 fn main() -> () {
     env_logger::init();
 
+    info!("Cipo is starting up");
+
     let config: Config = config::load_from_file();
 
     let (journalTx, journal_rx): (Sender<JournalEntry>, Receiver<JournalEntry>) = mpsc::channel();

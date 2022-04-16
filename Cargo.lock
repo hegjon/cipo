@@ -76,6 +76,19 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "baf1de4339761588bc0619e3cbc0120ee582ebb74b53b4efbf79117bd2da40fd"
 
 [[package]]
+name = "cipo"
+version = "0.1.0"
+dependencies = [
+ "attohttpc",
+ "env_logger",
+ "humantime",
+ "log",
+ "serde",
+ "serde_json",
+ "toml",
+]
+
+[[package]]
 name = "core-foundation"
 version = "0.9.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -216,19 +229,6 @@ name = "itoa"
 version = "1.0.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "1aab8fc367588b89dcee83ab0fd66b72b50b72fa1904d7095045ace2b0c81c35"
-
-[[package]]
-name = "juice_me"
-version = "0.1.0"
-dependencies = [
- "attohttpc",
- "env_logger",
- "humantime",
- "log",
- "serde",
- "serde_json",
- "toml",
-]
 
 [[package]]
 name = "lazy_static"
