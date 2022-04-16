@@ -7,12 +7,13 @@ use std::collections::HashMap;
 use std::collections::HashSet;
 use std::sync::mpsc;
 use std::sync::mpsc::{Receiver, Sender};
-use std::{thread, time};
+use std::thread;
 
 use std::time::{Duration, SystemTime};
 
 mod config;
 mod journal;
+mod shelly;
 
 use crate::config::{Config, Device, HostPort, Price};
 use crate::journal::JournalEntry;
@@ -21,19 +22,6 @@ use crate::journal::JournalEntry;
 struct Payment {
     watt_hours: f64,
     txid: String,
-}
-
-#[derive(Deserialize, Debug, Clone)]
-struct Status {
-    apower: f64,
-    aenergy: Energy,
-}
-
-#[derive(Deserialize, Debug, Clone)]
-struct Energy {
-    total: f64,
-    by_minute: Vec<f32>,
-    minute_ts: i64,
 }
 
 #[derive(Deserialize, Debug, Clone)]
@@ -245,14 +233,14 @@ fn deliver_electricity(
     let mut start: Option<f64> = None;
 
     loop {
-        match status(device) {
+        match shelly::status(device) {
             Ok(s) => {
                 let total = s.aenergy.total;
                 match start {
                     None => {
                         start = Some(total);
                         info!("{}: Turing on, meter at {:.2} Wh", device.location, total);
-                        on(device);
+                        shelly::on(device);
                     }
                     Some(start) => {
                         let end = start + paid.watt_hours;
@@ -271,10 +259,10 @@ fn deliver_electricity(
                         );
 
                         if total < end {
-                            on(device);
+                            shelly::on(device);
                         } else {
                             info!("{}: Turing off, meter at {:.2} Wh", device.location, total);
-                            off(device);
+                            shelly::off(device);
 
                             return Ok(());
                         }
@@ -284,44 +272,5 @@ fn deliver_electricity(
             Err(_) => error!("Error while getting status for {}", device.location),
         }
         thread::sleep(poll_delay);
-    }
-}
-
-fn on(shelly: &Device) -> Result<(), attohttpc::Error> {
-    let url = format!(
-        "http://{}/rpc/Switch.Set?id={}&on=true",
-        shelly.host, shelly.switch
-    );
-    attohttpc::get(url).send();
-
-    Ok(())
-}
-
-fn off(shelly: &Device) -> Result<(), attohttpc::Error> {
-    let url = format!(
-        "http://{}/rpc/Switch.Set?id={}&on=false",
-        shelly.host, shelly.switch
-    );
-    attohttpc::get(url).send();
-
-    Ok(())
-}
-
-fn status(shelly: &Device) -> Result<Status, attohttpc::Error> {
-    let url = format!(
-        "http://{}/rpc/Switch.GetStatus?id={}",
-        shelly.host, shelly.switch
-    );
-
-    let response = attohttpc::get(url).send();
-
-    match response {
-        Ok(r) => {
-            let json: Status = r.json().unwrap();
-            return Ok(json);
-        }
-        Err(e) => {
-            return Err(e);
-        }
     }
 }
