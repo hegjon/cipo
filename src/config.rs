@@ -26,7 +26,7 @@ pub struct Device {
     pub location: String,
     pub host: String,
     pub switch: u16,
-    pub monero: String
+    pub monero: String,
 }
 
 pub fn load_from_file() -> Config {
