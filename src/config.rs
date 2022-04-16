@@ -11,8 +11,8 @@ pub struct Config {
 
 #[derive(Deserialize, Debug, Clone)]
 pub struct Price {
-    #[serde(rename = "xmr-per-watt-hour")]
-    pub xmr_per_watt_hour: f64,
+    #[serde(rename = "xmr-per-kwh")]
+    pub xmr_per_kwh: f64,
 }
 
 #[derive(Deserialize, Debug, Clone)]

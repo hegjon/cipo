@@ -1,5 +1,53 @@
 # Juice me
 
+## Config
+
+The devices and price per watt hour is declared in the config file config.toml.
+
+### Example file
+```
+[price]
+xmr-per-kwh = 0.00129556
+
+[monero-rpc]
+host = 'localhost'
+port = 18083
+
+[[device]]
+location = 'Camping#1'
+host = '10.40.4.96'
+switch = 3
+monero = '46vp22XJf4CWcAdhXrWTW3AbgWbjairqd2pHE3Z5tMzrfq8szv1Dt7g1Pw7qj4gE87gJDJopNno6tDRcGDn8zUNg72h7eQt'
+
+[[device]]
+location = 'Camping#2'
+host = '10.40.4.96'
+switch = 2
+monero = '84aGHMyaHbRg1rcZ9mCByuEMkAMorEqe4UCK3GFgcgTkHxQ1kJEJq6pBbHgdX1wRsRhJaZ2vbrxdoFTR7JNw7m7kMj6C1sm'
+```
+
+### How to calculate the exchange rate?
+
+This program does not support downloading the price of Monero nor the cost of electrcity.
+
+It is reqcommended to calculate a new price when the price of Monero or electricity changes *enough*.
+
+For Norway this could be done like this:
+
+1 XMR = 230 USD
+1 USD = 8,83 NOK
+1 kWh = 1000 Wh = 2.63 NOK
+
+xmr-per-watt-hour 
+
+### When is the exchange rate calculated?
+
+For long term usage, the rate is calculated/bought at the time of payment.
+
+When the program receive the payment it will register that the *txid* have been credited amount of Wh.
+
+If you change the rate after the payment have been accepted by the program, then the program will use the old change rate.
+
 ## State dir
 
 The changes are written to files append-only log-file style, each transaction have their own file.

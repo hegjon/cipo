@@ -33,7 +33,7 @@ pub fn journal_writer(journal_rx: Receiver<JournalEntry>) {
 
         let mut f = File::options().create(true).append(true).open(log_file).unwrap();
 
-        let time = humantime::format_rfc3339(entry.time);
+        let time = humantime::format_rfc3339_seconds(entry.time);
         
         writeln!(f, "{} {:+.2}", time, entry.remaining_watt_hours);
     }

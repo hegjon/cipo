@@ -101,9 +101,10 @@ fn route_payments(receiver: Receiver<MoneroTransfer>, journal: Sender<JournalEnt
 
         match router.get(&transfer.address) {
             Some(channel) => {
-                let amount = Amount::from_pico(transfer.amount);   
+                //let amount = Amount::from_pico(transfer.amount);   
+                let amount: f64 = transfer.amount as f64 / 1000000000000.0;
                 let payment = Payment {
-                    watt_hours: price.xmr_per_watt_hour * amount.as_xmr(),
+                    watt_hours: price.xmr_per_kwh * 1000.0 * amount,
                     txid: transfer.txid.clone(),
                 };
         
@@ -192,7 +193,7 @@ fn deliver_electricity(journal: Sender<JournalEntry>, device: &Device, paid: Pay
 
     let mut start: Option<f64> = None;
 
-    let poll_delay = time::Duration::from_millis(5000);
+    let poll_delay = time::Duration::from_secs(10);
     loop {
         match status(device) {
             Ok(s) => {
