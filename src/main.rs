@@ -51,7 +51,7 @@ fn main() -> () {
 
     let config: Config = config::load_from_file();
 
-    let (journalTx, journal_rx): (Sender<JournalEntry>, Receiver<JournalEntry>) = mpsc::channel();
+    let (journal_tx, journal_rx): (Sender<JournalEntry>, Receiver<JournalEntry>) = mpsc::channel();
 
     let (sender, receiver): (Sender<MoneroTransfer>, Receiver<MoneroTransfer>) = mpsc::channel();
 
@@ -62,7 +62,7 @@ fn main() -> () {
         journal::journal_writer(journal_rx);
     });
 
-    route_payments(receiver, journalTx, config.device, &config.price);
+    route_payments(receiver, journal_tx, config.device, &config.price);
 }
 
 fn route_payments(
