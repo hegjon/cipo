@@ -7,7 +7,6 @@ use std::sync::mpsc::Receiver;
 
 use std::time::SystemTime;
 
-
 pub struct JournalEntry {
     pub txid: String,
     pub time: SystemTime,
@@ -15,10 +14,10 @@ pub struct JournalEntry {
 }
 
 pub fn journal_file(txid: &String) -> PathBuf {
+    let file_name = format!("{}.log", txid);
     let current_dir = env::current_dir().unwrap();
-    let log_file = current_dir.join("journal").join(txid.to_owned() + ".log");
-
-    log_file
+    
+    current_dir.join("journal").join(file_name)
 }
 
 pub fn have_been_journaled(txid: &String) -> bool {

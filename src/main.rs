@@ -8,13 +8,16 @@ use std::{thread, time};
 use std::sync::mpsc;
 use std::sync::mpsc::{Sender, Receiver};
 use monero::util::amount::Amount;
-use serde::{Deserialize,};
+use serde::Deserialize;
 use serde_json::json;
 
 use std::time::SystemTime;
 
 mod journal;
+mod config;
+
 use crate::journal::JournalEntry;
+use crate::config::{Config,Device,HostPort,Price};
 
 #[derive(Deserialize, Debug, Clone)]
 struct Payment {
@@ -56,39 +59,10 @@ struct MoneroTransfer {
     txid: String,
 }
 
-#[derive(Deserialize, Debug, Clone)]
-struct Config {
-    #[serde(rename = "monero-rpc")]
-    monero_rpc: HostPort,
-    device: Vec<Device>,
-    price: Price,
-}
-
-#[derive(Deserialize, Debug, Clone)]
-struct Price {
-    #[serde(rename = "xmr-per-watt-hour")]
-    xmr_per_watt_hour: f64,
-}
-
-#[derive(Deserialize, Debug, Clone)]
-struct HostPort {
-    host: String,
-    port: u16,
-}
-
-#[derive(Deserialize, Debug, Clone)]
-struct Device {
-    location: String,
-    host: String,
-    switch: u16,
-    monero: String
-}
-
-use std::fs;
 fn main() -> () {
     env_logger::init();
-    let content = fs::read_to_string("config.toml").unwrap();
-    let config: Config = toml::from_str(&content).unwrap();
+
+    let config: Config = config::load_from_file();
 
     let (journalTx, journal_rx): (Sender<JournalEntry>, Receiver<JournalEntry>) = mpsc::channel();
 
