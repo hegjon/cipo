@@ -37,9 +37,9 @@ It is reqcommended to calculate a new price when the price of Monero or electric
 
 For Norway this could be done like this:
 
-1 XMR = 230 USD
-1 USD = 8,83 NOK
-1 kWh = 1000 Wh = 2.63 NOK
+* 1 XMR = 230 USD
+* 1 USD = 8,83 NOK
+* 1 kWh = 1000 Wh = 2.63 NOK
 
 TODO: Make formula
 
