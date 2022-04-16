@@ -123,8 +123,7 @@ fn calculate_watt_hours(xmr_per_kwh: f64, picomonero: u64) -> f64 {
 
 #[cfg(test)]
 mod tests {
-    // Note this useful idiom: importing names from outer (for mod tests) scope.
-    use super::*;
+    use super::calculate_watt_hours;
 
     #[test]
     fn test_one_xmr() {
