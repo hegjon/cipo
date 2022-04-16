@@ -196,29 +196,28 @@ fn deliver_electricity(journal: Sender<JournalEntry>, device: &Device, paid: Pay
     loop {
         match status(device) {
             Ok(s) => {
+                let total = s.aenergy.total;
                 match start {
                     None => {
-                        start = Some(s.aenergy.total);
-                        info!("Turing on @{}!", device.location);
+                        start = Some(total);
+                        info!("{}: Turing on, meter at {:.2} Wh", device.location, total);
                         on(device);
                     }
                     Some(start) => {
                         let end = start + paid.watt_hours;
-                        let current = s.aenergy.total;
 
                         journal.send(JournalEntry {
                             time: SystemTime::now(),
                             txid: paid.txid.clone(),
-                            remaining_watt_hours: end - current,
+                            remaining_watt_hours: end - total,
                         }).unwrap();                        
 
-                        debug!("Current power @{} {:.1}W, total watt hour {:.3} Wh used, will end at {:.3} Wh", device.location, s.apower, current, end);
+                        debug!("{}: Load {:.1} W, meter at {:.2} Wh, will end at {:.2} Wh", device.location, s.apower, total, end);
 
-                        if current < end {
+                        if total < end {
                             on(device);
                         } else {
-                            info!("Session done at {:.3} Wh", current);
-                            info!("Turing off @{}!", device.location);
+                            info!("{}: Turing off, meter at {:.2} Wh", device.location, total);
                             off(device);
                         
                             return Ok(());

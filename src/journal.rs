@@ -35,6 +35,6 @@ pub fn journal_writer(journal_rx: Receiver<JournalEntry>) {
 
         let time = humantime::format_rfc3339(entry.time);
         
-        writeln!(f, "{} {:+.3}", time, entry.remaining_watt_hours);
+        writeln!(f, "{} {:+.2}", time, entry.remaining_watt_hours);
     }
 }
