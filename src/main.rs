@@ -44,12 +44,28 @@ struct MoneroTransfer {
     txid: String,
 }
 
+use clap::{Arg, App};
+
 fn main() -> () {
     env_logger::init();
 
-    info!("Cipo is starting up");
+    let matches = App::new("Cipo")
+        .version("0.1.0")
+        .author("Jonny Heggheim <jonny@hegghe.im>")
+        .about("Crypto in, power out")
+        .arg(Arg::with_name("config")
+                 .short('f')
+                 .long("config")
+                 .takes_value(true)
+                 .help("Config file"))
+        .get_matches();
 
-    let config: Config = config::load_from_file();
+    let config_file = matches.value_of("config").unwrap_or("/etc/cipo.toml");
+
+    info!("Cipo is starting up");
+    info!("Using config file {}", config_file);
+
+    let config: Config = config::load_from_file(&config_file.to_string());
 
     let (journal_tx, journal_rx): (Sender<JournalEntry>, Receiver<JournalEntry>) = mpsc::channel();
 

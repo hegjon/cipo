@@ -29,8 +29,8 @@ pub struct Device {
     pub monero: String,
 }
 
-pub fn load_from_file() -> Config {
-    let content = fs::read_to_string("config.toml").unwrap();
+pub fn load_from_file(config_file: &String) -> Config {
+    let content = fs::read_to_string(config_file).unwrap();
     let config: Config = toml::from_str(&content).unwrap();
 
     config
