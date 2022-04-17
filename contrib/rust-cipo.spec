@@ -3,14 +3,14 @@
 
 %global crate cipo
 
-Name:           rust-%{crate}
-Version:        0.1.0
-Release:        %autorelease
-Summary:        Crypto in, power out
+Name:    rust-%{crate}
+Version: 0.1.1
+Release: %autorelease
+Summary: Crypto in, power out
 
-License:        MIT
-URL:            https://crates.io/crates/cipo
-Source:         %{crates_source}
+License: MIT
+URL:     https://crates.io/crates/cipo
+Source:  %{crates_source}
 
 ExclusiveArch:  %{rust_arches}
 
