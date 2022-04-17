@@ -8,7 +8,6 @@ Version:        0.1.0
 Release:        %autorelease
 Summary:        Crypto in, power out
 
-# Upstream license specification: MIT
 License:        MIT
 URL:            https://crates.io/crates/cipo
 Source:         %{crates_source}
@@ -16,6 +15,7 @@ Source:         %{crates_source}
 ExclusiveArch:  %{rust_arches}
 
 BuildRequires:  rust-packaging >= 21
+BuildRequires:  systemd-rpm-macros
 
 %global _description %{expand:
 Crypto in, power out.}
@@ -31,6 +31,7 @@ Summary:        %{summary}
 %license LICENSE target/package/cipo-0.1.0/LICENSE
 %doc README.md
 %{_bindir}/cipo
+%{_sysusersdir}/cipo.conf
 
 %prep
 %autosetup -n %{crate}-%{version_no_tilde} -p1
@@ -44,11 +45,15 @@ Summary:        %{summary}
 
 %install
 %cargo_install
+install -p -D -m 0644 contrib/cipo.sysusers %{buildroot}%{_sysusersdir}/cipo.conf
 
 %if %{with check}
 %check
 %cargo_test
 %endif
+
+%pre
+%sysusers_create_compat contrib/cipo.sysusers
 
 %changelog
 %autochangelog

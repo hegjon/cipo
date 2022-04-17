@@ -1,0 +1,2 @@
+#Type Name     ID    GECOS    Home directory   Shell
+u     cipo     -     "Cipo"   /var/lib/cipo    /sbin/nologin
