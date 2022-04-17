@@ -4,6 +4,7 @@ Description=Cipo - Crypto in, Power out
 [Service]
 Type=simple
 User=cipo
+WorkingDirectory=/var/lib/cipo
 ExecStart=/usr/bin/cipo
 
 [Install]
