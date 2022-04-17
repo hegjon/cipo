@@ -28,7 +28,7 @@ Summary:        %{summary}
 %description -n %{crate} %{_description}
 
 %files       -n %{crate}
-%license LICENSE target/package/cipo-0.1.0/LICENSE
+%license LICENSE
 %doc README.md
 %{_bindir}/cipo
 %{_sysusersdir}/cipo.conf
