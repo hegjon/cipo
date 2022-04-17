@@ -1,4 +1,5 @@
 use std::env;
+use std::fs;
 use std::fs::File;
 use std::io::Write;
 use std::path::PathBuf;
@@ -14,10 +15,13 @@ pub struct JournalEntry {
 }
 
 pub fn journal_file(txid: &String) -> PathBuf {
-    let file_name = format!("{}.log", txid);
     let current_dir = env::current_dir().unwrap();
+    let journal_dir = current_dir.join("journal");
 
-    current_dir.join("journal").join(file_name)
+    fs::create_dir_all(&journal_dir).unwrap();
+
+    let file_name = format!("{}.log", txid);
+    journal_dir.join(file_name)
 }
 
 pub fn have_been_journaled(txid: &String) -> bool {
