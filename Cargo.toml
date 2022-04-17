@@ -8,6 +8,9 @@ homepage = "https://github.com/hegjon/cipo"
 repository = "https://github.com/hegjon/cipo"
 readme = "README.md"
 
+[badges]
+maintenance = { status = "experimental" }
+
 [dependencies]
 log = "0.4"
 env_logger = "0.9.0"
