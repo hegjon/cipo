@@ -8,3 +8,5 @@ fi
 
 sed -i "/^version = .*/c\version = \"$version\"" Cargo.toml
 sed -i "/^Version: .*/c\Version: $version" contrib/rust-cipo.spec
+sed -i "/\.version\\\(\".*/c\.version\(\"$version\"\)" src/main.rs
+rustfmt src/main.rs
