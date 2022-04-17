@@ -40,6 +40,8 @@ Summary:        %{summary}
 
 %install
 %cargo_install
+install -dD -m 0750 %{buildroot}%{_sharedstatedir}/cipo
+install -p -D -m 0640 docs/example-config.toml %{buildroot}%{_sysconfdir}/cipo.toml
 install -p -D -m 0644 contrib/cipo.sysusers %{buildroot}%{_sysusersdir}/cipo.conf
 
 %if %{with check}
@@ -54,8 +56,10 @@ install -p -D -m 0644 contrib/cipo.sysusers %{buildroot}%{_sysusersdir}/cipo.con
 %files       -n %{crate}
 %license LICENSE
 %doc README.md
+%config(noreplace) %attr(0640, root, cipo) %{_sysconfdir}/cipo.toml
 %{_bindir}/cipo
 %{_sysusersdir}/cipo.conf
+%dir %attr(0750, cipo, cipo) %{_sharedstatedir}/cipo
 
 
 %changelog
