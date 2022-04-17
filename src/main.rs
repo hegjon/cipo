@@ -44,7 +44,7 @@ struct MoneroTransfer {
     txid: String,
 }
 
-use clap::{Arg, App};
+use clap::{App, Arg};
 
 fn main() -> () {
     env_logger::init();
@@ -53,11 +53,13 @@ fn main() -> () {
         .version("0.1.0")
         .author("Jonny Heggheim <jonny@hegghe.im>")
         .about("Crypto in, power out")
-        .arg(Arg::with_name("config")
-                 .short('f')
-                 .long("config")
-                 .takes_value(true)
-                 .help("Config file"))
+        .arg(
+            Arg::with_name("config")
+                .short('f')
+                .long("config")
+                .takes_value(true)
+                .help("Config file"),
+        )
         .get_matches();
 
     let config_file = matches.value_of("config").unwrap_or("/etc/cipo.toml");
