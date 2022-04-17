@@ -50,7 +50,7 @@ fn main() -> () {
     env_logger::init();
 
     let matches = App::new("Cipo")
-        .version("0.1.0")
+        .version("0.1.2")
         .author("Jonny Heggheim <jonny@hegghe.im>")
         .about("Crypto in, power out")
         .arg(
