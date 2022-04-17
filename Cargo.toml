@@ -3,6 +3,7 @@ name = "cipo"
 version = "0.1.0"
 edition = "2021"
 license = "MIT"
+description = "Crypto in, power out"
 keywords = ["monero", "shelly"]
 homepage = "https://github.com/hegjon/cipo"
 repository = "https://github.com/hegjon/cipo"
