@@ -27,11 +27,6 @@ Summary:        %{summary}
 
 %description -n %{crate} %{_description}
 
-%files       -n %{crate}
-%license LICENSE
-%doc README.md
-%{_bindir}/cipo
-%{_sysusersdir}/cipo.conf
 
 %prep
 %autosetup -n %{crate}-%{version_no_tilde} -p1
@@ -54,6 +49,14 @@ install -p -D -m 0644 contrib/cipo.sysusers %{buildroot}%{_sysusersdir}/cipo.con
 
 %pre
 %sysusers_create_compat contrib/cipo.sysusers
+
+
+%files       -n %{crate}
+%license LICENSE
+%doc README.md
+%{_bindir}/cipo
+%{_sysusersdir}/cipo.conf
+
 
 %changelog
 %autochangelog
