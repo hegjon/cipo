@@ -1,0 +1,10 @@
+[Unit]
+Description=Cipo - Crypto in, Power out
+
+[Service]
+Type=simple
+User=cipo
+ExecStart=/usr/bin/cipo --config /etc/cipo.toml
+
+[Install]
+WantedBy=multi-user.target

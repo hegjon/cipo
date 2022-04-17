@@ -42,7 +42,8 @@ Summary:        %{summary}
 %cargo_install
 install -dD -m 0750 %{buildroot}%{_sharedstatedir}/cipo
 install -p -D -m 0640 docs/example-config.toml %{buildroot}%{_sysconfdir}/cipo.toml
-install -p -D -m 0644 contrib/cipo.sysusers %{buildroot}%{_sysusersdir}/cipo.conf
+install -p -D -m 0644 contrib/cipo.sysusers    %{buildroot}%{_sysusersdir}/cipo.conf
+install -p -D -m 0644 contrib/cipo.service     %{buildroot}/%{_unitdir}/cipo.service
 
 %if %{with check}
 %check
@@ -52,6 +53,15 @@ install -p -D -m 0644 contrib/cipo.sysusers %{buildroot}%{_sysusersdir}/cipo.con
 %pre
 %sysusers_create_compat contrib/cipo.sysusers
 
+%post
+%systemd_post cipo.service
+
+%preun
+%systemd_preun cipo.service
+
+%postun
+%systemd_postun_with_restart cipo.service
+
 
 %files       -n %{crate}
 %license LICENSE
@@ -60,6 +70,7 @@ install -p -D -m 0644 contrib/cipo.sysusers %{buildroot}%{_sysusersdir}/cipo.con
 %{_bindir}/cipo
 %{_sysusersdir}/cipo.conf
 %dir %attr(0750, cipo, cipo) %{_sharedstatedir}/cipo
+%{_unitdir}/cipo.service
 
 
 %changelog
