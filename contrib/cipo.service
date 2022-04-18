@@ -1,10 +1,10 @@
 [Unit]
-Description=Cipo - Crypto in, Power out
+Description=Cipo daemon
 
 [Service]
 Type=simple
 User=cipo
-WorkingDirectory="~"
+WorkingDirectory=~
 Environment="RUST_LOG=cipo"
 ExecStart=/usr/bin/cipo
 
