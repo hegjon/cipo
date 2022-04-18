@@ -58,13 +58,12 @@ The changes are written to files append-only log-file style, each transaction ha
 These files can be used for debugging and are used by the program on startup.
 
 ### Structure
-<timestamp> <remaining-watt-hours>
+`<timestamp> <remaining-watt-hours>`
 
-### Example 2
+### Example
 
 ```
-2022-04-15T20:38:32.417830635Z +0.039
-2022-04-15T20:38:37.526962839Z +0.019
-2022-04-15T20:38:42.607861054Z +0.000
-2022-04-15T20:38:47.674914008Z -0.020
+2022-04-18T18:23:15Z +3.04
+2022-04-18T18:23:25Z +0.31
+2022-04-18T18:23:35Z -0.04
 ```
