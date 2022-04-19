@@ -14,7 +14,7 @@ pub struct JournalEntry {
     pub remaining_watt_hours: f64,
 }
 
-pub fn journal_file(txid: &String) -> PathBuf {
+pub fn journal_file(txid: &String, journal_dir: &PathBuf) -> PathBuf {
     let current_dir = env::current_dir().unwrap();
     let journal_dir = current_dir.join("journal");
 
@@ -24,16 +24,16 @@ pub fn journal_file(txid: &String) -> PathBuf {
     journal_dir.join(file_name)
 }
 
-pub fn have_been_journaled(txid: &String) -> bool {
-    let file = journal_file(txid);
+pub fn have_been_journaled(txid: &String, journal_dir: &PathBuf) -> bool {
+    let file = journal_file(txid, journal_dir);
     file.is_file() && file.exists()
 }
 
-pub fn journal_writer(journal_rx: Receiver<JournalEntry>) {
+pub fn journal_writer(journal_rx: Receiver<JournalEntry>, journal_dir: &PathBuf) {
     loop {
         let entry = journal_rx.recv().unwrap();
 
-        let log_file = journal_file(&entry.txid);
+        let log_file = journal_file(&entry.txid, journal_dir);
 
         let mut f = File::options()
             .create(true)

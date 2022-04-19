@@ -8,6 +8,8 @@ use std::collections::HashSet;
 use std::sync::mpsc;
 use std::sync::mpsc::{Receiver, Sender};
 use std::thread;
+use std::env;
+use std::path::PathBuf;
 
 use std::time::{Duration, SystemTime};
 
@@ -58,14 +60,32 @@ fn main() -> () {
                 .short('f')
                 .long("config")
                 .takes_value(true)
+                .default_value("/etc/cipo.toml")
                 .help("Config file"),
+        )
+        .arg(
+            Arg::with_name("journal")
+                .short('j')
+                .long("journal")
+                .takes_value(true)
+                .help("Journal directory, default is ${CWD}/journal"),
         )
         .get_matches();
 
     let config_file = matches.value_of("config").unwrap_or("/etc/cipo.toml");
+    let journal_dir = match matches.value_of("journal") {
+        Some(dir) => PathBuf::from(dir),
+        None => {
+            let current_dir = env::current_dir().unwrap();
+            let journal_dir = current_dir.join("journal");
+            journal_dir
+        }
+    };
+    let journal_dir2 = journal_dir.clone();
 
     info!("Cipo is starting up");
-    info!("Using config file {}", config_file);
+    info!("Config file: {}", config_file);
+    info!("Journal dir: {}", String::from(journal_dir.to_string_lossy()));
 
     let config: Config = config::load_from_file(&config_file.to_string());
 
@@ -77,10 +97,10 @@ fn main() -> () {
         listen_for_monero_payments(sender, config.monero_rpc);
     });
     thread::spawn(move || {
-        journal::journal_writer(journal_rx);
+        journal::journal_writer(journal_rx, &journal_dir);
     });
 
-    route_payments(receiver, journal_tx, config.device, &config.price);
+    route_payments(receiver, journal_tx, config.device, &config.price, &journal_dir2);
 }
 
 fn route_payments(
@@ -88,6 +108,7 @@ fn route_payments(
     journal: Sender<JournalEntry>,
     devices: Vec<Device>,
     price: &Price,
+    journal_dir: &PathBuf,
 ) {
     let mut router = HashMap::new();
 
@@ -104,7 +125,7 @@ fn route_payments(
     loop {
         let transfer: MoneroTransfer = receiver.recv().unwrap();
 
-        if journal::have_been_journaled(&transfer.txid) {
+        if journal::have_been_journaled(&transfer.txid, journal_dir) {
             //already delivered electricity
             continue;
         }
