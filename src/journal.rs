@@ -1,4 +1,3 @@
-use std::env;
 use std::fs;
 use std::fs::File;
 use std::io::Write;
@@ -15,9 +14,6 @@ pub struct JournalEntry {
 }
 
 pub fn journal_file(txid: &String, journal_dir: &PathBuf) -> PathBuf {
-    let current_dir = env::current_dir().unwrap();
-    let journal_dir = current_dir.join("journal");
-
     fs::create_dir_all(&journal_dir).unwrap();
 
     let file_name = format!("{}.log", txid);
