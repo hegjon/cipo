@@ -18,7 +18,7 @@ mod journal;
 mod shelly;
 
 use crate::config::{Config, Device, HostPort, Price};
-use crate::journal::JournalEntry;
+use crate::journal::{JournalWriter, JournalEntry};
 
 #[derive(Deserialize, Debug, Clone)]
 struct Payment {
@@ -96,8 +96,10 @@ fn main() -> () {
     thread::spawn(move || {
         listen_for_monero_payments(sender, config.monero_rpc);
     });
+
+    let journal = JournalWriter::new(journal_rx, journal_dir);
     thread::spawn(move || {
-        journal::journal_writer(journal_rx, &journal_dir);
+        journal.start();
     });
 
     route_payments(receiver, journal_tx, config.device, &config.price, &journal_dir2);

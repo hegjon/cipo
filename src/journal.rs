@@ -13,23 +13,27 @@ pub struct JournalEntry {
     pub remaining_watt_hours: f64,
 }
 
-pub fn journal_file(txid: &String, journal_dir: &PathBuf) -> PathBuf {
-    fs::create_dir_all(&journal_dir).unwrap();
-
-    let file_name = format!("{}.log", txid);
-    journal_dir.join(file_name)
+pub struct JournalWriter {
+    receiver: Receiver<JournalEntry>,
+    journal_dir: PathBuf,
 }
 
-pub fn have_been_journaled(txid: &String, journal_dir: &PathBuf) -> bool {
-    let file = journal_file(txid, journal_dir);
-    file.is_file() && file.exists()
-}
+impl JournalWriter {
+    pub fn new(receiver: Receiver<JournalEntry>, journal_dir: PathBuf) -> Self {
+        JournalWriter {
+            receiver,
+            journal_dir,
+        }
+    }
 
-pub fn journal_writer(journal_rx: Receiver<JournalEntry>, journal_dir: &PathBuf) {
-    loop {
-        let entry = journal_rx.recv().unwrap();
+    pub fn start(&self) -> () {
+        while let Ok(entry) = self.receiver.recv() {
+            self.handle_message(entry);
+        }
+    }
 
-        let log_file = journal_file(&entry.txid, journal_dir);
+    fn handle_message(&self, entry: JournalEntry) {
+        let log_file = journal_file(&entry.txid, &self.journal_dir);
 
         let mut f = File::options()
             .create(true)
@@ -41,4 +45,16 @@ pub fn journal_writer(journal_rx: Receiver<JournalEntry>, journal_dir: &PathBuf)
 
         writeln!(f, "{} {:+.2}", time, entry.remaining_watt_hours);
     }
+}
+
+fn journal_file(txid: &String, journal_dir: &PathBuf) -> PathBuf {
+    fs::create_dir_all(&journal_dir).unwrap();
+
+    let file_name = format!("{}.log", txid);
+    journal_dir.join(file_name)
+}
+
+pub fn have_been_journaled(txid: &String, journal_dir: &PathBuf) -> bool {
+    let file = journal_file(txid, journal_dir);
+    file.is_file() && file.exists()
 }
