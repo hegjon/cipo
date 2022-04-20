@@ -14,20 +14,20 @@ pub struct JournalEntry {
 }
 
 pub struct JournalWriter {
-    receiver: Receiver<JournalEntry>,
+    rx: Receiver<JournalEntry>,
     journal_dir: PathBuf,
 }
 
 impl JournalWriter {
-    pub fn new(receiver: Receiver<JournalEntry>, journal_dir: PathBuf) -> Self {
+    pub fn new(rx: Receiver<JournalEntry>, journal_dir: PathBuf) -> Self {
         JournalWriter {
-            receiver,
+            rx,
             journal_dir,
         }
     }
 
     pub fn start(&self) -> () {
-        while let Ok(entry) = self.receiver.recv() {
+        for entry in &self.rx {
             self.handle_message(entry);
         }
     }

@@ -91,10 +91,10 @@ fn main() -> () {
 
     let (journal_tx, journal_rx): (Sender<JournalEntry>, Receiver<JournalEntry>) = mpsc::channel();
 
-    let (sender, receiver): (Sender<MoneroTransfer>, Receiver<MoneroTransfer>) = mpsc::channel();
+    let (monero_tx, monero_rx): (Sender<MoneroTransfer>, Receiver<MoneroTransfer>) = mpsc::channel();
 
     thread::spawn(move || {
-        listen_for_monero_payments(sender, config.monero_rpc);
+        listen_for_monero_payments(monero_tx, config.monero_rpc);
     });
 
     let journal = JournalWriter::new(journal_rx, journal_dir);
@@ -102,11 +102,11 @@ fn main() -> () {
         journal.start();
     });
 
-    route_payments(receiver, journal_tx, config.device, &config.price, &journal_dir2);
+    route_payments(monero_rx, journal_tx, config.device, &config.price, &journal_dir2);
 }
 
 fn route_payments(
-    receiver: Receiver<MoneroTransfer>,
+    monero_rx: Receiver<MoneroTransfer>,
     journal: Sender<JournalEntry>,
     devices: Vec<Device>,
     price: &Price,
@@ -124,9 +124,7 @@ fn route_payments(
         });
     }
 
-    loop {
-        let transfer: MoneroTransfer = receiver.recv().unwrap();
-
+    for transfer in monero_rx {
         if journal::have_been_journaled(&transfer.txid, journal_dir) {
             //already delivered electricity
             continue;
@@ -186,8 +184,7 @@ fn waiting_for_payment_per_device(
     journal: Sender<JournalEntry>,
     device: &Device,
 ) {
-    loop {
-        let payment: Payment = receiver.recv().unwrap();
+    for payment in receiver {
         deliver_electricity(journal.clone(), device, payment);
     }
 }
