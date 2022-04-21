@@ -73,7 +73,7 @@ These files can be used for debugging and are used by the program on startup.
 
 
 ### Folder structure
-<journal-dir>/<receiving-address>/<txid>.log
+`<journal-dir>/<receiving-address>/<txid>.log`
 
 ### File/log structure
 `<timestamp> <remaining-watt-hours>`
