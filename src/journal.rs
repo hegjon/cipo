@@ -41,6 +41,7 @@ impl JournalWriter {
 
     fn write(&self, entry: JournalEntry) {
         let log_file = journal_file(&entry, &self.journal_dir);
+        fs::create_dir_all(&log_file).unwrap();
 
         let mut f = File::options()
             .create(true)
@@ -100,8 +101,6 @@ impl JournalReader {
 fn journal_file(entry: &JournalEntry, journal_dir: &PathBuf) -> PathBuf {
     let file_name = format!("{}.log", entry.txid);
     let path = journal_dir.join(&entry.address);
-
-    fs::create_dir_all(&path).unwrap();
 
     path.join(file_name)
 }

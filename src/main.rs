@@ -177,7 +177,7 @@ fn route_payments(
 }
 
 fn calculate_watt_hours(xmr_per_kwh: f64, picomonero: u64) -> f64 {
-    let xmr: f64 = picomonero as f64 / 1000000000000.0;
+    let xmr: f64 = picomonero as f64 / 1_000_000_000_000.0;
 
     (xmr / xmr_per_kwh) * 1000.0
 }

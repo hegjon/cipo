@@ -53,9 +53,13 @@ If you change the rate after the payment have been accepted by the program, then
 
 ## State dir
 
+As long as Cipo is versioned as 0.X, then the state format can change without an
+upgrade path.
+
 The changes are written to files append-only log-file style, each transaction have their own file.
 
 These files can be used for debugging and are used by the program on startup.
+
 
 ### Folder structure
 <journal-dir>/<receiving-address>/<txid>.log
