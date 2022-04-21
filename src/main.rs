@@ -6,14 +6,13 @@ use serde_json::json;
 use std::collections::HashMap;
 use std::collections::HashSet;
 
+use std::env;
+use std::path::PathBuf;
 use std::sync::mpsc;
 use std::sync::mpsc::{Receiver, Sender};
 use std::thread;
-use std::env;
-use std::path::PathBuf;
 
 use std::time::{Duration, SystemTime};
-
 
 mod common;
 mod config;
@@ -22,7 +21,7 @@ mod shelly;
 
 use crate::common::Payment;
 use crate::config::{Config, Device, HostPort, Price};
-use crate::journal::{JournalReader, JournalWriter, JournalEntry};
+use crate::journal::{JournalEntry, JournalReader, JournalWriter};
 
 #[derive(Deserialize, Debug, Clone)]
 struct MoneroResponse {
@@ -83,15 +82,20 @@ fn main() -> () {
 
     info!("Cipo is starting up");
     info!("Config file: {}", config_file);
-    info!("Journal dir: {}", String::from(journal_dir.to_string_lossy()));
+    info!(
+        "Journal dir: {}",
+        String::from(journal_dir.to_string_lossy())
+    );
 
     let config: Config = config::load_from_file(&config_file.to_string());
 
     let (journal_tx, journal_rx): (Sender<JournalEntry>, Receiver<JournalEntry>) = mpsc::channel();
 
-    let (monero_tx, monero_rx): (Sender<MoneroTransfer>, Receiver<MoneroTransfer>) = mpsc::channel();
+    let (monero_tx, monero_rx): (Sender<MoneroTransfer>, Receiver<MoneroTransfer>) =
+        mpsc::channel();
 
-    let (journal_reader_tx, journal_reader_rx): (Sender<Payment>, Receiver<Payment>) = mpsc::channel();
+    let (journal_reader_tx, journal_reader_rx): (Sender<Payment>, Receiver<Payment>) =
+        mpsc::channel();
     let reader = JournalReader::new(journal_reader_tx, journal_dir.clone());
 
     reader.read();
@@ -105,7 +109,13 @@ fn main() -> () {
         listen_for_monero_payments(monero_tx, config.monero_rpc);
     });
 
-    route_payments(monero_rx, journal_tx, config.device, &config.price, journal_reader_rx);
+    route_payments(
+        monero_rx,
+        journal_tx,
+        config.device,
+        &config.price,
+        journal_reader_rx,
+    );
 }
 
 fn route_payments(
@@ -140,7 +150,7 @@ fn route_payments(
                     channel.send(credit.clone());
                 }
                 processed_transactions.insert(credit.txid.clone());
-            },
+            }
             None => error!("missing device for address"),
         }
     }
@@ -281,7 +291,6 @@ fn deliver_electricity(
     device: &Device,
     payment: Payment,
 ) -> std::io::Result<()> {
-
     journal
         .send(JournalEntry {
             time: SystemTime::now(),
@@ -317,7 +326,8 @@ fn deliver_electricity(
                             })
                             .unwrap();
 
-                        debug!("{}: Current load {:.1} W, meter at {:.3} Wh, will end at {:.3} Wh",
+                        debug!(
+                            "{}: Current load {:.1} W, meter at {:.3} Wh, will end at {:.3} Wh",
                             device.location, s.apower, total, end
                         );
 

@@ -23,11 +23,9 @@ async fn test1() {
         .assert();
 
     assert.interrupted();
-
 }
 
 fn mount_shelly(mock: MockServer) {
-
     // On and off
     Mock::given(method("GET"))
         .and(path("/rpc/Switch.Set"))
@@ -36,11 +34,6 @@ fn mount_shelly(mock: MockServer) {
 
     Mock::given(method("GET"))
         .and(path("/rpc/Switch.GetStatus"))
-        .respond_with(
-            ResponseTemplate::new(200)
-                .set_body_string("{}")
-        )
+        .respond_with(ResponseTemplate::new(200).set_body_string("{}"))
         .mount(&mock);
-
-
 }

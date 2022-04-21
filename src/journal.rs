@@ -1,11 +1,11 @@
 use std::f64;
 use std::fs;
-use std::io;
 use std::fs::File;
+use std::io;
 use std::io::Write;
 use std::path::PathBuf;
 
-use std::sync::mpsc::{Sender, Receiver};
+use std::sync::mpsc::{Receiver, Sender};
 
 use std::time::SystemTime;
 
@@ -30,10 +30,7 @@ pub struct JournalReader {
 
 impl JournalWriter {
     pub fn new(rx: Receiver<JournalEntry>, journal_dir: PathBuf) -> Self {
-        JournalWriter {
-            rx,
-            journal_dir,
-        }
+        JournalWriter { rx, journal_dir }
     }
 
     pub fn start(&self) -> () {
@@ -59,10 +56,7 @@ impl JournalWriter {
 
 impl JournalReader {
     pub fn new(tx: Sender<Payment>, journal_dir: PathBuf) -> Self {
-        JournalReader {
-            tx,
-            journal_dir,
-        }
+        JournalReader { tx, journal_dir }
     }
 
     pub fn read(&self) -> io::Result<()> {
@@ -78,12 +72,17 @@ impl JournalReader {
                 let line = last_line(&txid.path());
                 let remaining_watt_hours: f64 = match line.split_once(' ') {
                     Some((time, watt_hours)) => watt_hours.parse().unwrap(),
-                    None => -0.1
+                    None => -0.1,
                 };
 
                 let credit = Payment {
                     address: address.file_name().into_string().unwrap(),
-                    txid: txid.file_name().into_string().unwrap().trim_end_matches(".log").to_string(),
+                    txid: txid
+                        .file_name()
+                        .into_string()
+                        .unwrap()
+                        .trim_end_matches(".log")
+                        .to_string(),
                     watt_hours: remaining_watt_hours,
                 };
 
@@ -113,8 +112,8 @@ fn last_line(file: &PathBuf) -> String {
     match content {
         Ok(lines) => match lines.lines().last() {
             Some(last) => last.to_owned(),
-            None => "2000-04-20T20:50:47Z -0.01".to_owned()
+            None => "2000-04-20T20:50:47Z -0.01".to_owned(),
         },
-        Err(err) => "2000-04-20T20:50:47Z -0.01".to_owned()
+        Err(err) => "2000-04-20T20:50:47Z -0.01".to_owned(),
     }
 }
