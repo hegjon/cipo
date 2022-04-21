@@ -57,7 +57,10 @@ The changes are written to files append-only log-file style, each transaction ha
 
 These files can be used for debugging and are used by the program on startup.
 
-### Structure
+### Folder structure
+<journal-dir>/<receiving-address>/<txid>.log
+
+### File/log structure
 `<timestamp> <remaining-watt-hours>`
 
 ### Example

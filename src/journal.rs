@@ -66,7 +66,7 @@ impl JournalReader {
     }
 
     pub fn read(&self) -> io::Result<()> {
-        info!("Scanning journal for credits");
+        info!("Scanning journal for unfinished deliveries");
         for entry in fs::read_dir(&self.journal_dir)? {
             let address = entry?;
             let path = address.path();
@@ -88,7 +88,7 @@ impl JournalReader {
                 };
 
                 if remaining_watt_hours > 0.0 {
-                    debug!("Own txid {} Wh", remaining_watt_hours);
+                    debug!("Unfinished delivery for txid {} Wh", remaining_watt_hours);
                 }
                 self.tx.send(credit).unwrap();
             }
@@ -117,9 +117,4 @@ fn last_line(file: &PathBuf) -> String {
         },
         Err(err) => "2000-04-20T20:50:47Z -0.01".to_owned()
     }
-}
-
-pub fn have_been_journaled(entry: &JournalEntry, journal_dir: &PathBuf) -> bool {
-    let file = journal_file(entry, journal_dir);
-    file.is_file() && file.exists()
 }
