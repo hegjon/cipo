@@ -5,6 +5,7 @@ use serde::Deserialize;
 use serde_json::json;
 use std::collections::HashMap;
 use std::collections::HashSet;
+
 use std::sync::mpsc;
 use std::sync::mpsc::{Receiver, Sender};
 use std::thread;
@@ -13,18 +14,15 @@ use std::path::PathBuf;
 
 use std::time::{Duration, SystemTime};
 
+
+mod common;
 mod config;
 mod journal;
 mod shelly;
 
+use crate::common::Payment;
 use crate::config::{Config, Device, HostPort, Price};
-use crate::journal::{JournalWriter, JournalEntry};
-
-#[derive(Deserialize, Debug, Clone)]
-struct Payment {
-    watt_hours: f64,
-    txid: String,
-}
+use crate::journal::{JournalReader, JournalWriter, JournalEntry};
 
 #[derive(Deserialize, Debug, Clone)]
 struct MoneroResponse {
@@ -93,16 +91,21 @@ fn main() -> () {
 
     let (monero_tx, monero_rx): (Sender<MoneroTransfer>, Receiver<MoneroTransfer>) = mpsc::channel();
 
-    thread::spawn(move || {
-        listen_for_monero_payments(monero_tx, config.monero_rpc);
-    });
+    let (journal_reader_tx, journal_reader_rx): (Sender<Payment>, Receiver<Payment>) = mpsc::channel();
+    let reader = JournalReader::new(journal_reader_tx, journal_dir.clone());
+
+    reader.read();
 
     let journal = JournalWriter::new(journal_rx, journal_dir);
     thread::spawn(move || {
         journal.start();
     });
 
-    route_payments(monero_rx, journal_tx, config.device, &config.price, &journal_dir2);
+    thread::spawn(move || {
+        listen_for_monero_payments(monero_tx, config.monero_rpc);
+    });
+
+    route_payments(monero_rx, journal_tx, config.device, &config.price, journal_reader_rx);
 }
 
 fn route_payments(
@@ -110,9 +113,10 @@ fn route_payments(
     journal: Sender<JournalEntry>,
     devices: Vec<Device>,
     price: &Price,
-    journal_dir: &PathBuf,
+    journal_reader: Receiver<Payment>,
 ) {
     let mut router = HashMap::new();
+    let mut processed_transactions: HashSet<String> = HashSet::new();
 
     for device in devices {
         let (sender2, receiver2): (Sender<Payment>, Receiver<Payment>) = mpsc::channel();
@@ -124,9 +128,25 @@ fn route_payments(
         });
     }
 
+    for credit in journal_reader.try_iter() {
+        if processed_transactions.contains(&credit.txid) {
+            continue;
+        }
+
+        match router.get(&credit.address) {
+            Some(channel) => {
+                if credit.watt_hours > 0.0 {
+                    info!("Got credit of {} for {} Wh", credit.txid, credit.watt_hours);
+                    channel.send(credit.clone());
+                }
+                processed_transactions.insert(credit.txid.clone());
+            },
+            None => error!("missing device for address"),
+        }
+    }
+
     for transfer in monero_rx {
-        if journal::have_been_journaled(&transfer.txid, journal_dir) {
-            //already delivered electricity
+        if processed_transactions.contains(&transfer.txid) {
             continue;
         }
 
@@ -134,10 +154,12 @@ fn route_payments(
             Some(channel) => {
                 let payment = Payment {
                     watt_hours: calculate_watt_hours(price.xmr_per_kwh, transfer.amount),
+                    address: transfer.address.clone(),
                     txid: transfer.txid.clone(),
                 };
 
                 channel.send(payment);
+                processed_transactions.insert(transfer.txid.clone());
             }
             None => error!("missing device for address {}", &transfer.address),
         }
@@ -257,13 +279,15 @@ fn iterate_monero_transactions(
 fn deliver_electricity(
     journal: Sender<JournalEntry>,
     device: &Device,
-    paid: Payment,
+    payment: Payment,
 ) -> std::io::Result<()> {
+
     journal
         .send(JournalEntry {
             time: SystemTime::now(),
-            txid: paid.txid.clone(),
-            remaining_watt_hours: paid.watt_hours,
+            address: payment.address.clone(),
+            txid: payment.txid.clone(),
+            remaining_watt_hours: payment.watt_hours,
         })
         .unwrap();
 
@@ -278,21 +302,22 @@ fn deliver_electricity(
                     None => {
                         start = Some(total);
                         info!("{}: Turing on, meter at {:.2} Wh", device.location, total);
+                        debug!("{}: Current txid: {}", device.location, payment.txid);
                         shelly::on(device);
                     }
                     Some(start) => {
-                        let end = start + paid.watt_hours;
+                        let end = start + payment.watt_hours;
 
                         journal
                             .send(JournalEntry {
                                 time: SystemTime::now(),
-                                txid: paid.txid.clone(),
+                                address: payment.address.clone(),
+                                txid: payment.txid.clone(),
                                 remaining_watt_hours: end - total,
                             })
                             .unwrap();
 
-                        debug!(
-                            "{}: Load {:.1} W, meter at {:.3} Wh, will end at {:.3} Wh",
+                        debug!("{}: Current load {:.1} W, meter at {:.3} Wh, will end at {:.3} Wh",
                             device.location, s.apower, total, end
                         );
 
@@ -300,6 +325,7 @@ fn deliver_electricity(
                             shelly::on(device);
                         } else {
                             info!("{}: Turing off, meter at {:.2} Wh", device.location, total);
+                            debug!("{}: Current txid: {}", device.location, payment.txid);
                             shelly::off(device);
 
                             return Ok(());
