@@ -1,6 +1,12 @@
 # Cipo
 
-Crypto in, power out
+## Crypto in, power out
+
+Cipo makes it easy to let users pay for electricity for instance for instance for your campervan, electric cars, marinas, caravan and other high load cases.
+
+Cipo currently supports the Shelly 4PM realay and probably other Shelly relays supporting the same API.
+
+For payment only Monero is supported, other crypto currencies might be supported in the future.
 
 ## Config
 
