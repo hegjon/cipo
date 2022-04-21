@@ -6,12 +6,15 @@ Cipo makes it easy to let users pay for electricity for instance for instance fo
 
 Cipo currently supports the Shelly 4PM realay and probably other Shelly relays supporting the same API.
 
-For payment only Monero is supported, other crypto currencies might be supported in the future.
+Monero is the only platform for payment at the moment, other crypto currencies might be supported in the future.
 
 ## Config
 
 The devices and price per watt hour is declared in the config file config.toml.
 You need to restart the program for it to read in changes.
+
+As long as Cipo is versioned as 0.X, then the config format can change without an
+upgrade path.
 
 ### Example file
 ```
