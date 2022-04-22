@@ -1,5 +1,7 @@
 # Cipo
 
+![Crates.io](https://img.shields.io/crates/v/cipo)
+
 ## Crypto in, power out
 
 Cipo makes it easy to let users pay for electricity for their camper-van, electric cars, boat, caravan and other high load cases.
