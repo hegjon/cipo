@@ -224,7 +224,7 @@ fn listen_for_monero_payments(
     sender: Sender<MoneroTransfer>,
     config: HostPort,
 ) -> Result<(), attohttpc::Error> {
-    let poll_delay = Duration::from_millis(1000);
+    let poll_delay = Duration::from_secs(1);
 
     let mut old_transactions: HashSet<String> = HashSet::new();
 
