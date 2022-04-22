@@ -43,17 +43,17 @@ struct MoneroTransfer {
     txid: String,
 }
 
-use clap::{App, Arg};
+use clap::{Command, Arg};
 
 fn main() -> () {
     env_logger::init();
 
-    let matches = App::new("Cipo")
+    let matches = Command::new("Cipo")
         .version("0.1.2")
         .author("Jonny Heggheim <jonny@hegghe.im>")
         .about("Crypto in, power out")
         .arg(
-            Arg::with_name("config")
+            Arg::new("config")
                 .short('f')
                 .long("config")
                 .takes_value(true)
@@ -61,7 +61,7 @@ fn main() -> () {
                 .help("Config file"),
         )
         .arg(
-            Arg::with_name("journal")
+            Arg::new("journal")
                 .short('j')
                 .long("journal")
                 .takes_value(true)
@@ -78,7 +78,6 @@ fn main() -> () {
             journal_dir
         }
     };
-    let journal_dir2 = journal_dir.clone();
 
     info!("Cipo is starting up");
     info!("Config file: {}", config_file);
