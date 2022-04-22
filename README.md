@@ -2,13 +2,13 @@
 
 ## Crypto in, power out
 
-Cipo makes it easy to let users pay for electricity for their campervan, electric cars, boat, caravan and other high load cases.
+Cipo makes it easy to let users pay for electricity for their camper-van, electric cars, boat, caravan and other high load cases.
 
-Cipo currently supports the [Shelly Pro 4PM](https://shelly.cloud/shelly-pro-smart-home-automation-solution/#Pro-4PM) realay and probably other Shelly relays supporting the same API.
+Cipo currently supports the [Shelly Pro 4PM](https://shelly.cloud/shelly-pro-smart-home-automation-solution/#Pro-4PM) relay and probably other Shelly relays supporting the same API.
 
 [Monero](https://getmonero.org/) is the only platform for payment at the moment, other crypto currencies might be supported in the future.
 
-The only user interface for end users are a QR-code per socket/outlet. This makes it possbible to pay with the wallet they already have, but makes it hard to provide feedback to the end user. In the future it might be poissble to add a screen or provide a QR-code with a webpage for status and notifications.
+The only user interface for end users are a QR-code per socket/outlet. This makes it possible to pay with the wallet they already have, but makes it hard to provide feedback to the end user. In the future it might be possible to add a screen or provide a QR-code with a webpage for status and notifications.
 
 ## Config
 
@@ -42,9 +42,9 @@ monero = '84aGHMyaHbRg1rcZ9mCByuEMkAMorEqe4UCK3GFgcgTkHxQ1kJEJq6pBbHgdX1wRsRhJaZ
 
 ### How to calculate the exchange rate?
 
-This program does not support downloading the price of Monero nor the cost of electrcity.
+This program does not support downloading the price of Monero nor the cost of electricity.
 
-It is reqcommended to calculate a new price when the price of Monero or electricity changes *enough*.
+It is recommended to calculate a new price when the price of Monero or electricity changes *enough*.
 
 For Norway this could be done like this:
 
