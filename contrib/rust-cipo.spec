@@ -4,7 +4,7 @@
 %global crate cipo
 
 Name:    rust-%{crate}
-Version: 0.1.4
+Version: 0.1.5
 Release: %autorelease
 Summary: Crypto in, power out
 
