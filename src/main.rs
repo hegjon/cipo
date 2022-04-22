@@ -43,7 +43,7 @@ struct MoneroTransfer {
     txid: String,
 }
 
-use clap::{Command, Arg};
+use clap::{Arg, Command};
 
 fn main() -> () {
     env_logger::init();
@@ -104,17 +104,14 @@ fn main() -> () {
         journal.start();
     });
 
-    thread::spawn(move || {
-        loop {
-            let result = listen_for_monero_payments(monero_tx.clone(), config.monero_rpc.clone());
-            match result {
-                Ok(_) => break,
-                Err(err) => {
-                    error!("Error while query Monero wallet: {}", err);
-                    thread::sleep(Duration::from_secs(10));
-                }
+    thread::spawn(move || loop {
+        let result = listen_for_monero_payments(monero_tx.clone(), config.monero_rpc.clone());
+        match result {
+            Ok(_) => break,
+            Err(err) => {
+                error!("Error while query Monero wallet: {}", err);
+                thread::sleep(Duration::from_secs(10));
             }
-
         }
     });
 
