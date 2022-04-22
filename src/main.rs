@@ -105,7 +105,17 @@ fn main() -> () {
     });
 
     thread::spawn(move || {
-        listen_for_monero_payments(monero_tx, config.monero_rpc);
+        loop {
+            let result = listen_for_monero_payments(monero_tx.clone(), config.monero_rpc.clone());
+            match result {
+                Ok(_) => break,
+                Err(err) => {
+                    error!("Error while query Monero wallet: {}", err);
+                    thread::sleep(Duration::from_secs(10));
+                }
+            }
+
+        }
     });
 
     route_payments(
@@ -245,11 +255,11 @@ fn listen_for_monero_payments(
 
     info!("Waiting for payments from Monero");
     loop {
-        attohttpc::post(&url).json(&refresh)?.send().unwrap();
+        attohttpc::post(&url).json(&refresh)?.send()?;
 
-        let res = attohttpc::post(&url).json(&get_transfers)?.send().unwrap();
+        let res = attohttpc::post(&url).json(&get_transfers)?.send()?;
 
-        let response: MoneroResponse = res.json().unwrap();
+        let response: MoneroResponse = res.json()?;
 
         match response.result.transfers {
             Some(t) => iterate_monero_transactions(&t, &mut old_transactions, &sender),
