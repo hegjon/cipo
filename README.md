@@ -1,6 +1,8 @@
 # Cipo
 
+![GitHub](https://img.shields.io/github/license/hegjon/cipo)
 ![Crates.io](https://img.shields.io/crates/v/cipo)
+[![Cargo Build & Test](https://github.com/hegjon/cipo/actions/workflows/ci.yml/badge.svg)](https://github.com/hegjon/cipo/actions/workflows/ci.yml)
 
 ## Crypto in, power out
 
