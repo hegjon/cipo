@@ -1,5 +1,6 @@
 use crate::Device;
 
+use attohttpc::{Error, Response};
 use serde::Deserialize;
 
 #[derive(Deserialize, Debug, Clone)]
@@ -15,41 +16,33 @@ pub struct Energy {
     pub minute_ts: i64,
 }
 
-pub fn on(shelly: &Device) -> Result<(), attohttpc::Error> {
+pub fn on(shelly: &Device) -> Result<Response, Error> {
     let url = format!(
         "http://{}/rpc/Switch.Set?id={}&on=true",
         shelly.host, shelly.switch
     );
-    attohttpc::get(url).send();
+    let resp = attohttpc::get(url).send()?;
 
-    Ok(())
+    resp.error_for_status()
 }
 
-pub fn off(shelly: &Device) -> Result<(), attohttpc::Error> {
+pub fn off(shelly: &Device) -> Result<Response, Error> {
     let url = format!(
         "http://{}/rpc/Switch.Set?id={}&on=false",
         shelly.host, shelly.switch
     );
-    attohttpc::get(url).send();
+    let resp = attohttpc::get(url).send()?;
 
-    Ok(())
+    resp.error_for_status()
 }
 
-pub fn status(shelly: &Device) -> Result<Status, attohttpc::Error> {
+pub fn status(shelly: &Device) -> Result<Status, Error> {
     let url = format!(
         "http://{}/rpc/Switch.GetStatus?id={}",
         shelly.host, shelly.switch
     );
 
-    let response = attohttpc::get(url).send();
-
-    match response {
-        Ok(r) => {
-            let json: Status = r.json().unwrap();
-            return Ok(json);
-        }
-        Err(e) => {
-            return Err(e);
-        }
-    }
+    let resp = attohttpc::get(url).send()?;
+    let json: Status = resp.json()?;
+    Ok(json)
 }

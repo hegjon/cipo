@@ -316,7 +316,14 @@ fn deliver_electricity(
                         start = Some(total);
                         info!("{}: Turing on, meter at {:.2} Wh", device.location, total);
                         debug!("{}: Current txid: {}", device.location, payment.txid);
-                        shelly::on(device);
+                        let result = shelly::on(device);
+                        match result {
+                            Ok(_) => debug!("{}: Device turned on", device.location),
+                            Err(err) => error!(
+                                "{}: Error while turning device on: {}",
+                                device.location, err
+                            ),
+                        }
                     }
                     Some(start) => {
                         let end = start + payment.watt_hours;
@@ -336,18 +343,39 @@ fn deliver_electricity(
                         );
 
                         if total < end {
-                            shelly::on(device);
+                            let result = shelly::on(device);
+                            match result {
+                                Ok(_) => {
+                                    debug!("{}: Make sure device is turned on", device.location)
+                                }
+                                Err(err) => error!(
+                                    "{}: Error while turning device on: {}",
+                                    device.location, err
+                                ),
+                            }
                         } else {
                             info!("{}: Turing off, meter at {:.2} Wh", device.location, total);
                             debug!("{}: Current txid: {}", device.location, payment.txid);
-                            shelly::off(device);
+                            let result = shelly::off(device);
 
-                            return Ok(());
+                            match result {
+                                Err(err) => error!(
+                                    "{}: Error while turning device off: {}",
+                                    device.location, err
+                                ),
+                                Ok(_) => {
+                                    debug!("{}: Device turned off", device.location);
+                                    return Ok(());
+                                }
+                            }
                         }
                     }
                 }
             }
-            Err(_) => error!("Error while getting status for {}", device.location),
+            Err(err) => error!(
+                "{}: Error while getting status for: {}",
+                device.location, err
+            ),
         }
         thread::sleep(poll_delay);
     }
