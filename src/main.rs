@@ -300,7 +300,7 @@ fn deliver_electricity(journal_tx: Sender<JournalEntry>, device: &Device, paymen
         })
         .unwrap();
 
-    let poll_delay = Duration::from_secs(10);
+    let ten_seconds = Duration::from_secs(10);
     let mut start: Option<f64> = None;
 
     loop {
@@ -373,6 +373,6 @@ fn deliver_electricity(journal_tx: Sender<JournalEntry>, device: &Device, paymen
                 device.location, err
             ),
         }
-        thread::sleep(poll_delay);
+        thread::sleep(ten_seconds);
     }
 }
