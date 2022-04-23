@@ -105,14 +105,12 @@ fn main() -> () {
     });
 
     thread::spawn(move || loop {
-        let result = listen_for_monero_payments(monero_tx.clone(), config.monero_rpc.clone());
-        match result {
-            Ok(_) => break,
-            Err(err) => {
-                error!("Error while query Monero wallet: {}", err);
-                thread::sleep(Duration::from_secs(10));
-            }
+        match listen_for_monero_payments(monero_tx.clone(), config.monero_rpc.clone()) {
+            Ok(_) => error!("Premature return from Monero query"),
+            Err(err) => error!("Error while query Monero wallet: {}", err),
         }
+
+        thread::sleep(Duration::from_secs(10));
     });
 
     route_payments(
