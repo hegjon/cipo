@@ -215,16 +215,6 @@ mod tests {
     }
 }
 
-fn waiting_for_payment_per_device(
-    receiver: Receiver<Payment>,
-    journal: Sender<JournalEntry>,
-    device: &Device,
-) {
-    for payment in receiver {
-        deliver_electricity(journal.clone(), device, payment);
-    }
-}
-
 fn listen_for_monero_payments(
     sender: Sender<MoneroTransfer>,
     config: HostPort,
@@ -290,12 +280,18 @@ fn iterate_monero_transactions(
     }
 }
 
-fn deliver_electricity(
+fn waiting_for_payment_per_device(
+    payment_rx: Receiver<Payment>,
     journal: Sender<JournalEntry>,
     device: &Device,
-    payment: Payment,
-) -> std::io::Result<()> {
-    journal
+) {
+    for payment in payment_rx {
+        deliver_electricity(journal.clone(), device, payment);
+    }
+}
+
+fn deliver_electricity(journal_tx: Sender<JournalEntry>, device: &Device, payment: Payment) -> () {
+    journal_tx
         .send(JournalEntry {
             time: SystemTime::now(),
             address: payment.address.clone(),
@@ -328,7 +324,7 @@ fn deliver_electricity(
                     Some(start) => {
                         let end = start + payment.watt_hours;
 
-                        journal
+                        journal_tx
                             .send(JournalEntry {
                                 time: SystemTime::now(),
                                 address: payment.address.clone(),
@@ -365,7 +361,7 @@ fn deliver_electricity(
                                 ),
                                 Ok(_) => {
                                     debug!("{}: Device turned off", device.location);
-                                    return Ok(());
+                                    return;
                                 }
                             }
                         }
