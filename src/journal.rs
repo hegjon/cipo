@@ -71,7 +71,7 @@ impl JournalReader {
 
                 let line = last_line(&txid.path());
                 let remaining_watt_hours: f64 = match line.split_once(' ') {
-                    Some((time, watt_hours)) => watt_hours.parse().unwrap(),
+                    Some((_time, watt_hours)) => watt_hours.parse().unwrap(),
                     None => -0.1,
                 };
 
