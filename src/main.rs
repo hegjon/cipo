@@ -95,9 +95,12 @@ fn main() -> () {
 
     let (journal_reader_tx, journal_reader_rx): (Sender<Payment>, Receiver<Payment>) =
         mpsc::channel();
-    let reader = JournalReader::new(journal_reader_tx, journal_dir.clone());
 
-    reader.read();
+    let journal_reader = JournalReader::new(journal_reader_tx, journal_dir.clone());
+    match journal_reader.read() {
+        Ok(()) => info!("Journal have been read successful"),
+        Err(err) => panic!("Failed while loading from journal: {}", err),
+    }
 
     let journal = JournalWriter::new(journal_rx, journal_dir);
     thread::spawn(move || {
