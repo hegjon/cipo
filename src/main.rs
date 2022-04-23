@@ -280,7 +280,7 @@ fn iterate_monero_transactions(
             continue;
         }
 
-        let xmr = t.amount as f64 / 1000000000000.0;
+        let xmr = t.amount as f64 / 1_000_000_000_000.0;
 
         info!("Received {:0.12} XMR to {}", xmr, t.address);
         let hash = t.txid.clone();
