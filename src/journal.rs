@@ -70,7 +70,7 @@ impl JournalReader {
                 debug!("Loading txid {:?}", txid);
 
                 let line = last_line(&txid.path());
-                let remaining_watt_hours: f64 = match line.split_once(' ') {
+                let remaining_watt_hours: f64 = match line?.split_once(' ') {
                     Some((_time, watt_hours)) => watt_hours.parse().unwrap(),
                     None => -0.1,
                 };
@@ -105,14 +105,16 @@ fn journal_file(entry: &JournalEntry, journal_dir: &PathBuf) -> PathBuf {
     path.join(file_name)
 }
 
-fn last_line(file: &PathBuf) -> String {
-    let content = fs::read_to_string(file);
+fn last_line(file: &PathBuf) -> io::Result<String> {
+    let content = fs::read_to_string(file)?;
 
-    match content {
-        Ok(lines) => match lines.lines().last() {
-            Some(last) => last.to_owned(),
-            None => "2000-04-20T20:50:47Z -0.01".to_owned(),
-        },
-        Err(err) => "2000-04-20T20:50:47Z -0.01".to_owned(),
+    match content.lines().last() {
+        Some(last) => Ok(last.to_owned()),
+        None => {
+            let msg = format!("Corrupt journal, {} have no lines!", file.to_string_lossy());
+            let error = io::Error::new(io::ErrorKind::Other, msg);
+
+            Err(error)
+        }
     }
 }
