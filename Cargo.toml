@@ -8,6 +8,7 @@ keywords = ["payment", "monero", "shelly", "cryptocurrency"]
 homepage = "https://github.com/hegjon/cipo"
 repository = "https://github.com/hegjon/cipo"
 readme = "README.md"
+exclude = [".github/"]
 
 [badges]
 maintenance = { status = "experimental" }
