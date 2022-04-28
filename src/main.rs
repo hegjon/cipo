@@ -6,8 +6,6 @@ use serde_json::json;
 use std::collections::HashMap;
 use std::collections::HashSet;
 
-use std::env;
-use std::path::PathBuf;
 use std::sync::mpsc;
 use std::sync::mpsc::{Receiver, Sender};
 use std::thread;
@@ -18,7 +16,9 @@ mod common;
 mod config;
 mod journal;
 mod shelly;
+mod args;
 
+use crate::args::Args;
 use crate::common::Payment;
 use crate::config::{Config, Device, HostPort, Price};
 use crate::journal::{JournalEntry, JournalReader, JournalWriter};
@@ -43,41 +43,10 @@ struct MoneroTransfer {
     txid: String,
 }
 
-use clap::{Arg, Command};
-
 fn main() -> () {
     env_logger::init();
 
-    let matches = Command::new("Cipo")
-        .version("0.1.2")
-        .author("Jonny Heggheim <jonny@hegghe.im>")
-        .about("Crypto in, power out")
-        .arg(
-            Arg::new("config")
-                .short('f')
-                .long("config")
-                .takes_value(true)
-                .default_value("/etc/cipo.toml")
-                .help("Config file"),
-        )
-        .arg(
-            Arg::new("journal")
-                .short('j')
-                .long("journal")
-                .takes_value(true)
-                .help("Journal directory, default is ${CWD}/journal"),
-        )
-        .get_matches();
-
-    let config_file = matches.value_of("config").unwrap_or("/etc/cipo.toml");
-    let journal_dir = match matches.value_of("journal") {
-        Some(dir) => PathBuf::from(dir),
-        None => {
-            let current_dir = env::current_dir().unwrap();
-            let journal_dir = current_dir.join("journal");
-            journal_dir
-        }
-    };
+    let Args { config_file, journal_dir } = Args::parse();
 
     info!("Cipo is starting up");
     info!("Config file: {}", config_file);
