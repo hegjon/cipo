@@ -126,7 +126,7 @@ fn route_payments(
             Some(channel) => {
                 if credit.watt_hours > 0.0 {
                     info!("Got credit of {} for {} Wh", credit.txid, credit.watt_hours);
-                    channel.send(credit.clone());
+                    channel.send(credit.clone()).unwrap();
                 }
                 processed_transactions.insert(credit.txid.clone());
             }
@@ -147,7 +147,7 @@ fn route_payments(
                     txid: transfer.txid.clone(),
                 };
 
-                channel.send(payment);
+                channel.send(payment).unwrap();
                 processed_transactions.insert(transfer.txid.clone());
             }
             None => error!("missing device for address {}", &transfer.address),
@@ -250,7 +250,7 @@ fn iterate_monero_transactions(
         info!("Received {:0.12} XMR to {}", xmr, t.address);
         let hash = t.txid.clone();
 
-        sender.send(t.clone());
+        sender.send(t.clone()).unwrap();
         old_transactions.insert(hash);
     }
 }
