@@ -63,11 +63,19 @@ impl JournalReader {
         info!("Scanning journal for unfinished deliveries");
         for entry in fs::read_dir(&self.journal_dir)? {
             let address = entry?;
-            let path = address.path();
-            debug!("Loading journal for address {:?}", address);
-            for entry2 in fs::read_dir(path)? {
+            let address2 = address.file_name().into_string().unwrap();
+
+            debug!("Loading journal for address {}", address2);
+            for entry2 in fs::read_dir(address.path())? {
                 let txid = entry2?;
-                debug!("Loading txid {:?}", txid);
+                let txid2 = txid
+                    .file_name()
+                    .into_string()
+                    .unwrap()
+                    .trim_end_matches(".log")
+                    .to_string();
+
+                debug!("Loading txid {}", txid2);
 
                 let line = last_line(&txid.path());
                 let remaining_watt_hours: f64 = match line?.split_once(' ') {
@@ -76,13 +84,8 @@ impl JournalReader {
                 };
 
                 let credit = Payment {
-                    address: address.file_name().into_string().unwrap(),
-                    txid: txid
-                        .file_name()
-                        .into_string()
-                        .unwrap()
-                        .trim_end_matches(".log")
-                        .to_string(),
+                    address: address2.clone(),
+                    txid: txid2,
                     watt_hours: remaining_watt_hours,
                 };
 
