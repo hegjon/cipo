@@ -12,11 +12,11 @@ use std::thread;
 
 use std::time::{Duration, SystemTime};
 
+mod args;
 mod common;
 mod config;
 mod journal;
 mod shelly;
-mod args;
 
 use crate::args::Args;
 use crate::common::Payment;
@@ -46,7 +46,10 @@ struct MoneroTransfer {
 fn main() -> () {
     env_logger::init();
 
-    let Args { config_file, journal_dir } = Args::parse();
+    let Args {
+        config_file,
+        journal_dir,
+    } = Args::parse();
 
     info!("Cipo is starting up");
     info!("Config file: {}", config_file);
