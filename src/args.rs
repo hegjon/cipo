@@ -12,7 +12,7 @@ pub struct Args {
 impl Args {
     pub fn parse() -> Self {
         let matches = Command::new("Cipo")
-            .version("0.1.2")
+            .version("0.1.6")
             .author("Jonny Heggheim <jonny@hegghe.im>")
             .about("Crypto in, power out")
             .arg(
