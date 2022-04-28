@@ -3,6 +3,7 @@
 [![MIT License](https://img.shields.io/github/license/hegjon/cipo)](LICENSE)
 [![Crates.io](https://img.shields.io/crates/v/cipo)](https://crates.io/crates/cipo)
 [![Cargo Build & Test](https://github.com/hegjon/cipo/actions/workflows/ci.yml/badge.svg)](https://github.com/hegjon/cipo/actions/workflows/ci.yml)
+[![Copr build status](https://copr.fedorainfracloud.org/coprs/jonny/cipo-git/package/rust-cipo/status_image/last_build.png)](https://copr.fedorainfracloud.org/coprs/jonny/cipo-git/package/rust-cipo/)
 
 ## Crypto in, power out
 
