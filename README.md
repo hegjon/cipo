@@ -89,3 +89,7 @@ These files can be used for debugging and are used by the program on startup.
 2022-04-18T18:23:25Z +0.31
 2022-04-18T18:23:35Z -0.04
 ```
+
+## License
+
+This project is MIT licensed. For the full license, see [LICENSE](LICENSE).
