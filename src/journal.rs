@@ -35,22 +35,22 @@ impl JournalWriter {
 
     pub fn start(&self) -> () {
         for entry in &self.rx {
-            self.write(entry);
+            let result = self.write(entry);
+
+            if let Err(err) = result {
+                panic!("Error while writing to journal: {}", err)
+            }
         }
     }
 
-    fn write(&self, entry: JournalEntry) {
+    fn write(&self, entry: JournalEntry) -> io::Result<()> {
         let log_file = journal_file(&entry, &self.journal_dir);
 
-        let mut f = File::options()
-            .create(true)
-            .append(true)
-            .open(log_file)
-            .unwrap();
+        let mut f = File::options().create(true).append(true).open(log_file)?;
 
         let time = humantime::format_rfc3339_seconds(entry.time);
 
-        writeln!(f, "{} {:+.2}", time, entry.remaining_watt_hours);
+        writeln!(f, "{} {:+.2}", time, entry.remaining_watt_hours)
     }
 }
 
