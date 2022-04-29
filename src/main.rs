@@ -58,7 +58,7 @@ fn main() -> () {
         String::from(journal_dir.to_string_lossy())
     );
 
-    let config: Config = config::load_from_file(&config_file.to_string());
+    let config: Config = config::load_from_file(&config_file);
 
     let (journal_tx, journal_rx): (Sender<JournalEntry>, Receiver<JournalEntry>) = mpsc::channel();
 
