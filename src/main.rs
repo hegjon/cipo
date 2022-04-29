@@ -6,6 +6,7 @@ use serde_json::json;
 use std::collections::HashMap;
 use std::collections::HashSet;
 
+use std::io;
 use std::sync::mpsc;
 use std::sync::mpsc::{Receiver, Sender};
 use std::thread;
@@ -58,7 +59,13 @@ fn main() -> () {
         String::from(journal_dir.to_string_lossy())
     );
 
-    let config: Config = config::load_from_file(&config_file);
+    let config = match Config::from_file(&config_file) {
+        Ok(config) => config,
+        Err(err) => {
+            error!("Could not load config file: {}", err);
+            std::process::exit(1);
+        }
+    };
 
     let (journal_tx, journal_rx): (Sender<JournalEntry>, Receiver<JournalEntry>) = mpsc::channel();
 

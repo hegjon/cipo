@@ -1,5 +1,6 @@
 use serde::Deserialize;
 use std::fs;
+use std::io;
 
 #[derive(Deserialize, Debug, Clone)]
 pub struct Config {
@@ -29,9 +30,11 @@ pub struct Device {
     pub monero: String,
 }
 
-pub fn load_from_file(config_file: &String) -> Config {
-    let content = fs::read_to_string(config_file).unwrap();
-    let config: Config = toml::from_str(&content).unwrap();
+impl Config {
+    pub fn from_file(config_file: &String) -> io::Result<Self> {
+        let content = fs::read_to_string(config_file)?;
+        let config: Config = toml::from_str(&content)?;
 
-    config
+        Ok(config)
+    }
 }
