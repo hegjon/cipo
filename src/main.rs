@@ -6,7 +6,6 @@ use serde_json::json;
 use std::collections::HashMap;
 use std::collections::HashSet;
 
-use std::io;
 use std::sync::mpsc;
 use std::sync::mpsc::{Receiver, Sender};
 use std::thread;
@@ -60,7 +59,10 @@ fn main() -> () {
     );
 
     let config = match Config::from_file(&config_file) {
-        Ok(config) => config,
+        Ok(config) => {
+            debug!("Loaded config with {} devices", config.device.len());
+            config
+        }
         Err(err) => {
             error!("Could not load config file: {}", err);
             std::process::exit(1);
