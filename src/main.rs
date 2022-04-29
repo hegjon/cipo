@@ -21,7 +21,7 @@ use crate::args::Args;
 use crate::common::Payment;
 use crate::config::{Config, Device, Price};
 use crate::journal::{JournalEntry, JournalReader, JournalWriter};
-use crate::monero::{Monero,MoneroTransfer};
+use crate::monero::{Monero, MoneroTransfer};
 use crate::shelly::Shelly;
 
 fn main() -> () {

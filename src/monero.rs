@@ -7,9 +7,9 @@ use std::sync::mpsc::Sender;
 use serde::Deserialize;
 use serde_json::json;
 
-use crate::config::{HostPort};
+use crate::config::HostPort;
 
-use std::time::{Duration};
+use std::time::Duration;
 
 #[derive(Deserialize, Debug, Clone)]
 pub struct MoneroResponse {
