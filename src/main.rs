@@ -22,6 +22,7 @@ use crate::args::Args;
 use crate::common::Payment;
 use crate::config::{Config, Device, HostPort, Price};
 use crate::journal::{JournalEntry, JournalReader, JournalWriter};
+use crate::shelly::Shelly;
 
 #[derive(Deserialize, Debug, Clone)]
 struct MoneroResponse {
@@ -286,9 +287,10 @@ fn handle_payment(journal_tx: Sender<JournalEntry>, device: &Device, payment: Pa
 
     let ten_seconds = Duration::from_secs(10);
     let mut start: Option<f64> = None;
+    let shelly = Shelly::new(device.clone());
 
     loop {
-        match shelly::status(device) {
+        match shelly.status() {
             Ok(s) => {
                 let total = s.aenergy.total;
                 match start {
@@ -296,7 +298,7 @@ fn handle_payment(journal_tx: Sender<JournalEntry>, device: &Device, payment: Pa
                         start = Some(total);
                         info!("{}: Turing on, meter at {:.2} Wh", device.location, total);
                         debug!("{}: Current txid: {}", device.location, payment.txid);
-                        let result = shelly::on(device);
+                        let result = shelly.on();
                         match result {
                             Ok(_) => debug!("{}: Device turned on", device.location),
                             Err(err) => error!(
@@ -323,7 +325,7 @@ fn handle_payment(journal_tx: Sender<JournalEntry>, device: &Device, payment: Pa
                         );
 
                         if total < end {
-                            let result = shelly::on(device);
+                            let result = shelly.on();
                             match result {
                                 Ok(_) => {
                                     debug!("{}: Make sure device is turned on", device.location)
@@ -336,7 +338,7 @@ fn handle_payment(journal_tx: Sender<JournalEntry>, device: &Device, payment: Pa
                         } else {
                             info!("{}: Turing off, meter at {:.2} Wh", device.location, total);
                             debug!("{}: Current txid: {}", device.location, payment.txid);
-                            let result = shelly::off(device);
+                            let result = shelly.off();
 
                             match result {
                                 Err(err) => error!(

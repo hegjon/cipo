@@ -16,33 +16,47 @@ pub struct Energy {
     pub minute_ts: i64,
 }
 
-pub fn on(shelly: &Device) -> Result<Response, Error> {
-    let url = format!(
-        "http://{}/rpc/Switch.Set?id={}&on=true",
-        shelly.host, shelly.switch
-    );
-    let resp = attohttpc::get(url).send()?;
-
-    resp.error_for_status()
+pub struct Shelly {
+    host: String,
+    switch: u16,
 }
 
-pub fn off(shelly: &Device) -> Result<Response, Error> {
-    let url = format!(
-        "http://{}/rpc/Switch.Set?id={}&on=false",
-        shelly.host, shelly.switch
-    );
-    let resp = attohttpc::get(url).send()?;
+impl Shelly {
+    pub fn new(device: Device) -> Self {
+        Shelly {
+            host: device.host,
+            switch: device.switch,
+        }
+    }
 
-    resp.error_for_status()
-}
+    pub fn on(&self) -> Result<Response, Error> {
+        let url = format!(
+            "http://{}/rpc/Switch.Set?id={}&on=true",
+            self.host, self.switch
+        );
+        let resp = attohttpc::get(url).send()?;
 
-pub fn status(shelly: &Device) -> Result<Status, Error> {
-    let url = format!(
-        "http://{}/rpc/Switch.GetStatus?id={}",
-        shelly.host, shelly.switch
-    );
+        resp.error_for_status()
+    }
 
-    let resp = attohttpc::get(url).send()?;
-    let json: Status = resp.json()?;
-    Ok(json)
+    pub fn off(&self) -> Result<Response, Error> {
+        let url = format!(
+            "http://{}/rpc/Switch.Set?id={}&on=false",
+            self.host, self.switch
+        );
+        let resp = attohttpc::get(url).send()?;
+
+        resp.error_for_status()
+    }
+
+    pub fn status(&self) -> Result<Status, Error> {
+        let url = format!(
+            "http://{}/rpc/Switch.GetStatus?id={}",
+            self.host, self.switch
+        );
+
+        let resp = attohttpc::get(url).send()?;
+        let json: Status = resp.json()?;
+        Ok(json)
+    }
 }
