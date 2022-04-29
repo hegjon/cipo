@@ -270,11 +270,11 @@ fn waiting_for_payment_per_device(
     device: &Device,
 ) {
     for payment in payment_rx {
-        deliver_electricity(journal.clone(), device, payment);
+        handle_payment(journal.clone(), device, payment);
     }
 }
 
-fn deliver_electricity(journal_tx: Sender<JournalEntry>, device: &Device, payment: Payment) -> () {
+fn handle_payment(journal_tx: Sender<JournalEntry>, device: &Device, payment: Payment) -> () {
     journal_tx
         .send(JournalEntry {
             time: SystemTime::now(),
