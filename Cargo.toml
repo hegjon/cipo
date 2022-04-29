@@ -8,7 +8,7 @@ keywords = ["payment", "monero", "shelly", "cryptocurrency"]
 homepage = "https://github.com/hegjon/cipo"
 repository = "https://github.com/hegjon/cipo"
 readme = "README.md"
-exclude = [".github/", ".copr/"]
+exclude = [".github/", ".copr/", "contrib/bump-version.sh", "contrib/rust-cipo.spec"]
 
 [badges]
 maintenance = { status = "experimental" }
