@@ -1,8 +1,6 @@
 #[macro_use]
 extern crate log;
 
-use serde::Deserialize;
-use serde_json::json;
 use std::collections::HashMap;
 use std::collections::HashSet;
 
@@ -16,33 +14,15 @@ mod args;
 mod common;
 mod config;
 mod journal;
+mod monero;
 mod shelly;
 
 use crate::args::Args;
 use crate::common::Payment;
-use crate::config::{Config, Device, HostPort, Price};
+use crate::config::{Config, Device, Price};
 use crate::journal::{JournalEntry, JournalReader, JournalWriter};
+use crate::monero::{Monero,MoneroTransfer};
 use crate::shelly::Shelly;
-
-#[derive(Deserialize, Debug, Clone)]
-struct MoneroResponse {
-    result: MoneroResult,
-}
-
-#[derive(Deserialize, Debug, Clone)]
-struct MoneroResult {
-    #[serde(rename = "in")]
-    transfers: Option<Vec<MoneroTransfer>>,
-
-    pool: Option<Vec<MoneroTransfer>>,
-}
-
-#[derive(Deserialize, Debug, Clone)]
-struct MoneroTransfer {
-    address: String,
-    amount: u64,
-    txid: String,
-}
 
 fn main() -> () {
     env_logger::init();
@@ -89,9 +69,13 @@ fn main() -> () {
         journal.start();
     });
 
+    let monero = Monero {
+        sender: monero_tx,
+        config: config.monero_rpc,
+    };
     thread::spawn(move || loop {
-        match listen_for_monero_payments(monero_tx.clone(), config.monero_rpc.clone()) {
-            Ok(_) => error!("Premature return from Monero query"),
+        match monero.listen_for_payments() {
+            Ok(_) => error!("Pre-mature exit from Monero query"),
             Err(err) => error!("Error while query Monero wallet: {}", err),
         }
 
@@ -197,71 +181,6 @@ mod tests {
         let expected = 2000.0;
 
         assert_eq!(actual, expected);
-    }
-}
-
-fn listen_for_monero_payments(
-    sender: Sender<MoneroTransfer>,
-    config: HostPort,
-) -> Result<(), attohttpc::Error> {
-    let one_second = Duration::from_secs(1);
-
-    let mut old_transactions: HashSet<String> = HashSet::new();
-
-    let url = format!("http://{}:{}/json_rpc", config.host, config.port);
-    let refresh = json!({
-        "jsonrpc": "2.0",
-        "id": "0",
-        "method": "refresh",
-        "params": {"start_height": 2598796}
-    });
-
-    let get_transfers = json!({
-        "jsonrpc": "2.0",
-        "id": "1",
-        "method": "get_transfers",
-        "params": {"in":true,"pending":true,"pool":true}
-    });
-
-    info!("Waiting for payments from Monero");
-    loop {
-        attohttpc::post(&url).json(&refresh)?.send()?;
-
-        let res = attohttpc::post(&url).json(&get_transfers)?.send()?;
-
-        let response: MoneroResponse = res.json()?;
-
-        match response.result.transfers {
-            Some(t) => iterate_monero_transactions(&t, &mut old_transactions, &sender),
-            None => (),
-        }
-
-        match response.result.pool {
-            Some(t) => iterate_monero_transactions(&t, &mut old_transactions, &sender),
-            None => (),
-        }
-
-        thread::sleep(one_second);
-    }
-}
-
-fn iterate_monero_transactions(
-    transactions: &Vec<MoneroTransfer>,
-    old_transactions: &mut HashSet<String>,
-    sender: &Sender<MoneroTransfer>,
-) {
-    for t in transactions {
-        if old_transactions.contains(&t.txid) {
-            continue;
-        }
-
-        let xmr = t.amount as f64 / 1_000_000_000_000.0;
-
-        info!("Received {:0.12} XMR to {}", xmr, t.address);
-        let hash = t.txid.clone();
-
-        sender.send(t.clone()).unwrap();
-        old_transactions.insert(hash);
     }
 }
 
